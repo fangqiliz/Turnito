@@ -1,0 +1,8 @@
+# Directorio para los módulos del negocio de Turnito.
+# Cada módulo de negocio debe encapsular sus propios controladores, servicios, esquemas y rutas.
+# Ejemplo:
+# src/modules/appointments/
+# ├── appointments.controller.js
+# ├── appointments.service.js
+# ├── appointments.routes.js
+# └── appointments.schema.js
