@@ -16,6 +16,7 @@ import employeeRoutes from './modules/employees/employee.routes.js';
 import serviceRoutes from './modules/services/service.routes.js';
 import scheduleRoutes from './modules/schedules/schedule.routes.js';
 import appointmentRoutes from './modules/appointments/appointment.routes.js';
+import setupSwagger from './config/swagger.js';
 
 const app = express();
 
@@ -44,6 +45,9 @@ app.get('/health', (req, res) => {
 app.get('/', (req, res) => {
   return sendSuccess(res, 'Bienvenido al backend de Turnito. Sistema base listo para escalar.');
 });
+
+// 4.1 Documentación de API (Swagger)
+setupSwagger(app, '/api-docs');
 
 // Rutas de Módulos
 app.use('/auth', authRoutes);

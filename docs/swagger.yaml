@@ -1,0 +1,2484 @@
+openapi: 3.0.3
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Turnito API – OpenAPI 3.0 Specification
+# SaaS de Gestión de Citas Multi-Tenant
+# ══════════════════════════════════════════════════════════════════════════════
+
+info:
+  title: Turnito API
+  version: 1.0.0
+  description: |
+    **Turnito** es una plataforma SaaS de gestión de citas multi-tenant.
+
+    Esta API REST permite a negocios gestionar empleados, servicios, horarios
+    laborales y citas de forma segura y escalable.
+
+    ## Autenticación
+    La API utiliza **JWT Bearer Tokens** emitidos por Supabase Auth.
+    Incluye el header `Authorization: Bearer {token}` en cada petición protegida.
+
+    ## Formato de Respuesta Estándar
+    ```json
+    {
+      "success": true,
+      "message": "Descripción de la operación",
+      "data": { }
+    }
+    ```
+
+    ## Formato de Error Estándar
+    ```json
+    {
+      "success": false,
+      "message": "Descripción del error",
+      "errors": [ ]
+    }
+    ```
+
+    ## Multi-Tenancy
+    Turnito soporta múltiples negocios (tenants). Las operaciones de escritura
+    sobre recursos de un negocio requieren que el usuario sea propietario o
+    empleado activo del negocio correspondiente.
+  contact:
+    name: Turnito Dev Team
+    email: dev@turnito.app
+  license:
+    name: Privada
+    url: https://turnito.app/license
+
+servers:
+  - url: http://localhost:3000
+    description: Servidor de Desarrollo Local
+  - url: https://turnitoapi.onrender.com
+    description: Servidor de Producción
+
+tags:
+  - name: Health
+    description: Verificación de estado de la API
+  - name: Auth
+    description: 🔐 Registro, inicio y cierre de sesión
+  - name: Users
+    description: 👤 Gestión del perfil de usuario autenticado
+  - name: Businesses
+    description: 🏢 Gestión de negocios (tenants)
+  - name: Employees
+    description: 👥 Gestión de empleados de un negocio
+  - name: Services
+    description: 💇 Gestión de servicios ofrecidos por un negocio
+  - name: Schedules
+    description: 🕒 Gestión de horarios laborales de empleados
+  - name: Appointments
+    description: 📅 Módulo core – Gestión de citas y turnos
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SEGURIDAD
+# ══════════════════════════════════════════════════════════════════════════════
+security:
+  - BearerAuth: []
+
+components:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Esquemas de Seguridad
+  # ─────────────────────────────────────────────────────────────────────────────
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Token JWT emitido por Supabase Auth.
+        Incluir en el header: `Authorization: Bearer {access_token}`
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Schemas (Modelos de Datos)
+  # ─────────────────────────────────────────────────────────────────────────────
+  schemas:
+    # ── Respuestas Estándar ──────────────────────────────────────────────────
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Operación realizada correctamente.
+        data:
+          type: object
+          nullable: true
+      required:
+        - success
+        - message
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: Descripción del error
+        errors:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ValidationError'
+        stack:
+          type: string
+          description: Stack trace (solo en desarrollo)
+          nullable: true
+      required:
+        - success
+        - message
+
+    ValidationError:
+      type: object
+      properties:
+        field:
+          type: string
+          example: email
+        message:
+          type: string
+          example: El formato del correo electrónico es inválido
+
+    # ── Profile ──────────────────────────────────────────────────────────────
+    Profile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        email:
+          type: string
+          format: email
+          example: "juan@ejemplo.com"
+        full_name:
+          type: string
+          example: "Juan Pérez"
+        avatar_url:
+          type: string
+          format: uri
+          example: "https://ejemplo.com/avatar.jpg"
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-06-15T10:30:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2026-06-15T10:30:00Z"
+
+    # ── User (Auth) ──────────────────────────────────────────────────────────
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        email:
+          type: string
+          format: email
+          example: "juan@ejemplo.com"
+
+    # ── Session ──────────────────────────────────────────────────────────────
+    Session:
+      type: object
+      properties:
+        access_token:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        refresh_token:
+          type: string
+          example: "v1.MjQ5ZDc4..."
+        expires_in:
+          type: integer
+          example: 3600
+        token_type:
+          type: string
+          example: "bearer"
+
+    # ── Business ─────────────────────────────────────────────────────────────
+    Business:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        owner_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        name:
+          type: string
+          example: "Barbería El Corte"
+        slug:
+          type: string
+          example: "barberia-el-corte"
+        description:
+          type: string
+          nullable: true
+          example: "La mejor barbería de la ciudad"
+        phone:
+          type: string
+          nullable: true
+          example: "+1-809-555-0100"
+        address:
+          type: string
+          nullable: true
+          example: "Av. 27 de Febrero #123, Santo Domingo"
+        logo_url:
+          type: string
+          format: uri
+          nullable: true
+          example: "https://ejemplo.com/logo.png"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    # ── Employee ─────────────────────────────────────────────────────────────
+    Employee:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "b2c3d4e5-f6a7-8901-bcde-f23456789012"
+        business_id:
+          type: string
+          format: uuid
+        profile_id:
+          type: string
+          format: uuid
+          nullable: true
+        full_name:
+          type: string
+          example: "Carlos Rodríguez"
+        email:
+          type: string
+          format: email
+          nullable: true
+          example: "carlos@ejemplo.com"
+        phone:
+          type: string
+          nullable: true
+          example: "+1-809-555-0200"
+        specialty:
+          type: string
+          nullable: true
+          example: "Corte de cabello"
+        role:
+          type: string
+          enum: [owner, admin, manager, staff]
+          example: "staff"
+        is_active:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    # ── Service ──────────────────────────────────────────────────────────────
+    Service:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "c3d4e5f6-a7b8-9012-cdef-345678901234"
+        business_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "Corte Clásico"
+        description:
+          type: string
+          nullable: true
+          example: "Corte de cabello tradicional con navaja"
+        price:
+          type: number
+          format: double
+          example: 25.00
+        duration_minutes:
+          type: integer
+          example: 30
+        is_active:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    # ── Schedule ─────────────────────────────────────────────────────────────
+    Schedule:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "d4e5f6a7-b8c9-0123-defa-456789012345"
+        business_id:
+          type: string
+          format: uuid
+        employee_id:
+          type: string
+          format: uuid
+        day_of_week:
+          type: integer
+          minimum: 0
+          maximum: 6
+          description: "0 = Domingo, 1 = Lunes, ..., 6 = Sábado"
+          example: 1
+        start_time:
+          type: string
+          pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"
+          example: "09:00"
+        end_time:
+          type: string
+          pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"
+          example: "18:00"
+        is_active:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    # ── Appointment ──────────────────────────────────────────────────────────
+    Appointment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "e5f6a7b8-c9d0-1234-efab-567890123456"
+        business_id:
+          type: string
+          format: uuid
+        client_id:
+          type: string
+          format: uuid
+          nullable: true
+        employee_id:
+          type: string
+          format: uuid
+        service_id:
+          type: string
+          format: uuid
+        start_time:
+          type: string
+          format: date-time
+          example: "2026-06-20T10:00:00Z"
+        end_time:
+          type: string
+          format: date-time
+          example: "2026-06-20T10:30:00Z"
+        status:
+          type: string
+          enum: [pending, confirmed, cancelled, completed, no_show]
+          example: "pending"
+        client_name:
+          type: string
+          example: "María García"
+        client_email:
+          type: string
+          format: email
+          example: "maria@ejemplo.com"
+        client_phone:
+          type: string
+          nullable: true
+          example: "+1-809-555-0300"
+        notes:
+          type: string
+          nullable: true
+          example: "Prefiero corte con tijera"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    # ── Notification ─────────────────────────────────────────────────────────
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        business_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          example: "Nueva cita agendada"
+        message:
+          type: string
+          example: "María García agendó una cita para el 20/06/2026 a las 10:00 AM"
+        type:
+          type: string
+          enum: [appointment_created, appointment_confirmed, appointment_cancelled, reminder, system]
+          example: "appointment_created"
+        is_read:
+          type: boolean
+          example: false
+        created_at:
+          type: string
+          format: date-time
+
+    # ── Pagination Metadata ──────────────────────────────────────────────────
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 45
+        totalPages:
+          type: integer
+          example: 3
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Respuestas Reutilizables
+  # ─────────────────────────────────────────────────────────────────────────────
+  responses:
+    BadRequest:
+      description: Error de validación o datos incorrectos
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: "Error de validación en el cuerpo de la solicitud"
+            errors:
+              - field: email
+                message: "El formato del correo electrónico es inválido"
+
+    Unauthorized:
+      description: Token no proporcionado, inválido o expirado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: "Token de autenticación no proporcionado o formato incorrecto"
+
+    Forbidden:
+      description: El usuario no tiene permisos para esta acción
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: "Acceso denegado: solo los administradores pueden realizar esta acción."
+
+    NotFound:
+      description: Recurso no encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: "Recurso no encontrado"
+
+    Conflict:
+      description: Conflicto con el estado actual del recurso
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: "El empleado ya tiene una cita en ese horario"
+
+    InternalServerError:
+      description: Error interno del servidor
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: "Algo salió mal en el servidor. Por favor, inténtelo de nuevo más tarde."
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ENDPOINTS (PATHS)
+# ══════════════════════════════════════════════════════════════════════════════
+paths:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # HEALTH CHECK
+  # ─────────────────────────────────────────────────────────────────────────────
+  /health:
+    get:
+      tags: [Health]
+      summary: Verificar estado de la API
+      description: Retorna el estado de salud de la API, uptime y timestamp.
+      security: []
+      operationId: healthCheck
+      responses:
+        '200':
+          description: API activa y respondiendo
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          uptime:
+                            type: number
+                            example: 1234.567
+                          timestamp:
+                            type: string
+                            format: date-time
+                          env:
+                            type: string
+                            example: "development"
+              example:
+                success: true
+                message: "API de Turnito activa y respondiendo."
+                data:
+                  uptime: 1234.567
+                  timestamp: "2026-06-17T14:30:00.000Z"
+                  env: "development"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 🔐 AUTH
+  # ─────────────────────────────────────────────────────────────────────────────
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Registrar nuevo usuario
+      description: |
+        Registra un nuevo usuario en Supabase Auth y crea su perfil en la base de datos
+        automáticamente mediante un trigger de PostgreSQL.
+
+        **Acceso:** Público (no requiere autenticación)
+      operationId: authRegister
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - fullName
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Correo electrónico del usuario
+                  example: "juan.perez@ejemplo.com"
+                password:
+                  type: string
+                  format: password
+                  minLength: 6
+                  description: Contraseña (mínimo 6 caracteres)
+                  example: "MiPassword123!"
+                fullName:
+                  type: string
+                  minLength: 2
+                  description: Nombre completo del usuario
+                  example: "Juan Pérez"
+                avatarUrl:
+                  type: string
+                  format: uri
+                  description: URL del avatar (opcional)
+                  example: "https://ejemplo.com/avatar.jpg"
+            example:
+              email: "juan.perez@ejemplo.com"
+              password: "MiPassword123!"
+              fullName: "Juan Pérez"
+              avatarUrl: ""
+      responses:
+        '201':
+          description: Usuario registrado exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user:
+                            $ref: '#/components/schemas/User'
+                          profile:
+                            $ref: '#/components/schemas/Profile'
+                          session:
+                            $ref: '#/components/schemas/Session'
+              example:
+                success: true
+                message: "Usuario registrado correctamente."
+                data:
+                  user:
+                    id: "550e8400-e29b-41d4-a716-446655440000"
+                    email: "juan.perez@ejemplo.com"
+                  profile:
+                    id: "550e8400-e29b-41d4-a716-446655440000"
+                    email: "juan.perez@ejemplo.com"
+                    full_name: "Juan Pérez"
+                    avatar_url: ""
+                    created_at: "2026-06-17T14:30:00Z"
+                    updated_at: "2026-06-17T14:30:00Z"
+                  session:
+                    access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                    refresh_token: "v1.MjQ5ZDc4..."
+                    expires_in: 3600
+                    token_type: "bearer"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Iniciar sesión
+      description: |
+        Autentica al usuario con email y contraseña. Retorna los tokens JWT
+        y la información del perfil del usuario.
+
+        **Acceso:** Público (no requiere autenticación)
+      operationId: authLogin
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Correo electrónico registrado
+                  example: "juan.perez@ejemplo.com"
+                password:
+                  type: string
+                  format: password
+                  minLength: 1
+                  description: Contraseña del usuario
+                  example: "MiPassword123!"
+            example:
+              email: "juan.perez@ejemplo.com"
+              password: "MiPassword123!"
+      responses:
+        '200':
+          description: Inicio de sesión exitoso
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user:
+                            $ref: '#/components/schemas/User'
+                          profile:
+                            $ref: '#/components/schemas/Profile'
+                          session:
+                            $ref: '#/components/schemas/Session'
+              example:
+                success: true
+                message: "Inicio de sesión exitoso."
+                data:
+                  user:
+                    id: "550e8400-e29b-41d4-a716-446655440000"
+                    email: "juan.perez@ejemplo.com"
+                  profile:
+                    id: "550e8400-e29b-41d4-a716-446655440000"
+                    email: "juan.perez@ejemplo.com"
+                    full_name: "Juan Pérez"
+                    avatar_url: ""
+                    created_at: "2026-06-15T10:00:00Z"
+                    updated_at: "2026-06-15T10:00:00Z"
+                  session:
+                    access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                    refresh_token: "v1.MjQ5ZDc4..."
+                    expires_in: 3600
+                    token_type: "bearer"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Credenciales inválidas
+          content:
+            application/json:
+              example:
+                success: false
+                message: "Credenciales de acceso inválidas"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Cerrar sesión
+      description: |
+        Invalida el token JWT activo del usuario en Supabase Auth.
+
+        **Acceso:** Privado – Requiere Bearer Token
+      operationId: authLogout
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Sesión cerrada exitosamente
+          content:
+            application/json:
+              example:
+                success: true
+                message: "Cierre de sesión exitoso y sesión terminada."
+                data: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 👤 USERS
+  # ─────────────────────────────────────────────────────────────────────────────
+  /users/me:
+    get:
+      tags: [Users]
+      summary: Obtener perfil del usuario autenticado
+      description: |
+        Retorna la información completa del perfil del usuario autenticado,
+        incluyendo los negocios que posee y los negocios donde es empleado.
+
+        **Acceso:** Privado – Requiere Bearer Token
+      operationId: getUserProfile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Perfil obtenido exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          profile:
+                            $ref: '#/components/schemas/Profile'
+                          roles:
+                            type: object
+                            properties:
+                              ownedBusinesses:
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    id:
+                                      type: string
+                                      format: uuid
+                                    name:
+                                      type: string
+                                    slug:
+                                      type: string
+                                    logo_url:
+                                      type: string
+                                      nullable: true
+                                    created_at:
+                                      type: string
+                                      format: date-time
+                              employeeRoles:
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    employeeId:
+                                      type: string
+                                      format: uuid
+                                    role:
+                                      type: string
+                                      enum: [owner, admin, manager, staff]
+                                    isActive:
+                                      type: boolean
+                                    business:
+                                      type: object
+                                      properties:
+                                        id:
+                                          type: string
+                                          format: uuid
+                                        name:
+                                          type: string
+                                        slug:
+                                          type: string
+                                        logo_url:
+                                          type: string
+                                          nullable: true
+              example:
+                success: true
+                message: "Perfil obtenido correctamente."
+                data:
+                  profile:
+                    id: "550e8400-e29b-41d4-a716-446655440000"
+                    email: "juan.perez@ejemplo.com"
+                    full_name: "Juan Pérez"
+                    avatar_url: ""
+                    created_at: "2026-06-15T10:00:00Z"
+                    updated_at: "2026-06-15T10:00:00Z"
+                  roles:
+                    ownedBusinesses:
+                      - id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                        name: "Barbería El Corte"
+                        slug: "barberia-el-corte"
+                        logo_url: null
+                        created_at: "2026-06-15T12:00:00Z"
+                    employeeRoles: []
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Users]
+      summary: Actualizar perfil del usuario autenticado
+      description: |
+        Permite al usuario autenticado actualizar su nombre y/o URL de avatar.
+        Todos los campos son opcionales (actualización parcial).
+
+        **Acceso:** Privado – Requiere Bearer Token
+      operationId: updateUserProfile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fullName:
+                  type: string
+                  minLength: 2
+                  description: Nombre completo actualizado
+                  example: "Juan A. Pérez"
+                avatarUrl:
+                  type: string
+                  format: uri
+                  description: URL del nuevo avatar
+                  example: "https://ejemplo.com/nuevo-avatar.jpg"
+            example:
+              fullName: "Juan A. Pérez"
+              avatarUrl: "https://ejemplo.com/nuevo-avatar.jpg"
+      responses:
+        '200':
+          description: Perfil actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Profile'
+              example:
+                success: true
+                message: "Perfil actualizado correctamente."
+                data:
+                  id: "550e8400-e29b-41d4-a716-446655440000"
+                  email: "juan.perez@ejemplo.com"
+                  full_name: "Juan A. Pérez"
+                  avatar_url: "https://ejemplo.com/nuevo-avatar.jpg"
+                  created_at: "2026-06-15T10:00:00Z"
+                  updated_at: "2026-06-17T14:30:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 🏢 BUSINESSES
+  # ─────────────────────────────────────────────────────────────────────────────
+  /businesses:
+    post:
+      tags: [Businesses]
+      summary: Crear un nuevo negocio
+      description: |
+        Registra un nuevo negocio (tenant) en la plataforma.
+        El slug se genera automáticamente a partir del nombre si no se proporciona.
+
+        **Acceso:** Privado – Solo usuarios con rol `admin` en Supabase Auth
+      operationId: createBusiness
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                  description: Nombre del negocio
+                  example: "Barbería El Corte"
+                description:
+                  type: string
+                  maxLength: 500
+                  nullable: true
+                  description: Descripción breve del negocio
+                  example: "La mejor barbería de la ciudad"
+                phone:
+                  type: string
+                  maxLength: 20
+                  nullable: true
+                  description: Teléfono de contacto
+                  example: "+1-809-555-0100"
+                address:
+                  type: string
+                  maxLength: 255
+                  nullable: true
+                  description: Dirección física
+                  example: "Av. 27 de Febrero #123, Santo Domingo"
+                logo_url:
+                  type: string
+                  format: uri
+                  nullable: true
+                  description: URL del logotipo
+                  example: "https://ejemplo.com/logo.png"
+                slug:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                  pattern: "^[a-z0-9-]+$"
+                  description: URL-safe slug (se genera del nombre si no se proporciona)
+                  example: "barberia-el-corte"
+            example:
+              name: "Barbería El Corte"
+              description: "La mejor barbería de la ciudad"
+              phone: "+1-809-555-0100"
+              address: "Av. 27 de Febrero #123, Santo Domingo"
+              logo_url: "https://ejemplo.com/logo.png"
+      responses:
+        '201':
+          description: Negocio creado exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Business'
+              example:
+                success: true
+                message: "Negocio creado correctamente."
+                data:
+                  id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  owner_id: "550e8400-e29b-41d4-a716-446655440000"
+                  name: "Barbería El Corte"
+                  slug: "barberia-el-corte"
+                  description: "La mejor barbería de la ciudad"
+                  phone: "+1-809-555-0100"
+                  address: "Av. 27 de Febrero #123, Santo Domingo"
+                  logo_url: "https://ejemplo.com/logo.png"
+                  created_at: "2026-06-17T14:30:00Z"
+                  updated_at: "2026-06-17T14:30:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Slug ya existe
+          content:
+            application/json:
+              example:
+                success: false
+                message: "Ya existe un negocio con el slug 'barberia-el-corte'"
+
+    get:
+      tags: [Businesses]
+      summary: Listar todos los negocios
+      description: |
+        Retorna la lista de todos los negocios registrados en la plataforma.
+
+        **Acceso:** Privado – Requiere Bearer Token
+      operationId: listBusinesses
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Lista de negocios obtenida exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Business'
+              example:
+                success: true
+                message: "Lista de negocios obtenida correctamente."
+                data:
+                  - id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                    owner_id: "550e8400-e29b-41d4-a716-446655440000"
+                    name: "Barbería El Corte"
+                    slug: "barberia-el-corte"
+                    description: "La mejor barbería de la ciudad"
+                    phone: "+1-809-555-0100"
+                    address: "Av. 27 de Febrero #123"
+                    logo_url: null
+                    created_at: "2026-06-15T12:00:00Z"
+                    updated_at: "2026-06-15T12:00:00Z"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /businesses/{id}:
+    get:
+      tags: [Businesses]
+      summary: Obtener un negocio por ID
+      description: |
+        Retorna los detalles de un negocio específico, incluyendo información del propietario.
+
+        **Acceso:** Privado – Requiere Bearer Token
+      operationId: getBusinessById
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID del negocio
+          schema:
+            type: string
+            format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+      responses:
+        '200':
+          description: Negocio obtenido exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Business'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Businesses]
+      summary: Actualizar un negocio
+      description: |
+        Actualiza los campos de un negocio existente.
+        Todos los campos son opcionales (actualización parcial).
+        Al menos un campo debe estar presente.
+
+        **Acceso:** Privado – Solo el propietario del negocio (ownership validado en el servicio)
+      operationId: updateBusiness
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID del negocio
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                description:
+                  type: string
+                  maxLength: 500
+                  nullable: true
+                phone:
+                  type: string
+                  maxLength: 20
+                  nullable: true
+                address:
+                  type: string
+                  maxLength: 255
+                  nullable: true
+                logo_url:
+                  type: string
+                  format: uri
+                  nullable: true
+                slug:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                  pattern: "^[a-z0-9-]+$"
+            example:
+              name: "Barbería El Corte Premium"
+              phone: "+1-809-555-0101"
+      responses:
+        '200':
+          description: Negocio actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Business'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 👥 EMPLOYEES
+  # ─────────────────────────────────────────────────────────────────────────────
+  /employees:
+    post:
+      tags: [Employees]
+      summary: Registrar un nuevo empleado
+      description: |
+        Crea un nuevo empleado asociado a un negocio.
+        El `profile_id` es opcional (el empleado puede no estar registrado en la app aún).
+
+        **Acceso:** Privado – Solo el propietario del negocio (ownership validado en el servicio)
+      operationId: createEmployee
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - business_id
+                - full_name
+              properties:
+                business_id:
+                  type: string
+                  format: uuid
+                  description: UUID del negocio al que pertenece el empleado
+                profile_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+                  description: UUID del perfil del usuario (opcional)
+                full_name:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                  description: Nombre completo del empleado
+                  example: "Carlos Rodríguez"
+                email:
+                  type: string
+                  format: email
+                  nullable: true
+                  description: Email del empleado (opcional)
+                  example: "carlos@ejemplo.com"
+                phone:
+                  type: string
+                  maxLength: 20
+                  nullable: true
+                  description: Teléfono del empleado
+                  example: "+1-809-555-0200"
+                specialty:
+                  type: string
+                  maxLength: 100
+                  nullable: true
+                  description: Especialidad del empleado
+                  example: "Corte de cabello"
+                role:
+                  type: string
+                  enum: [owner, admin, manager, staff]
+                  default: staff
+                  description: Rol del empleado en el negocio
+                is_active:
+                  type: boolean
+                  default: true
+                  description: Estado activo del empleado
+            example:
+              business_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+              full_name: "Carlos Rodríguez"
+              email: "carlos@ejemplo.com"
+              phone: "+1-809-555-0200"
+              specialty: "Corte de cabello"
+              role: "staff"
+      responses:
+        '201':
+          description: Empleado registrado exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Employee'
+              example:
+                success: true
+                message: "Empleado registrado correctamente."
+                data:
+                  id: "b2c3d4e5-f6a7-8901-bcde-f23456789012"
+                  business_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  profile_id: null
+                  full_name: "Carlos Rodríguez"
+                  email: "carlos@ejemplo.com"
+                  phone: "+1-809-555-0200"
+                  specialty: "Corte de cabello"
+                  role: "staff"
+                  is_active: true
+                  created_at: "2026-06-17T15:00:00Z"
+                  updated_at: "2026-06-17T15:00:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /employees/business/{id}:
+    get:
+      tags: [Employees]
+      summary: Listar empleados de un negocio
+      description: |
+        Retorna todos los empleados registrados en un negocio específico.
+
+        **Acceso:** Privado – Requiere Bearer Token
+      operationId: listEmployeesByBusiness
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID del negocio
+          schema:
+            type: string
+            format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+      responses:
+        '200':
+          description: Lista de empleados obtenida exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Employee'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /employees/{id}:
+    put:
+      tags: [Employees]
+      summary: Actualizar un empleado
+      description: |
+        Actualiza los datos de un empleado existente.
+        Requiere el query param `?businessId` para validar el contexto multi-tenant.
+        No se permite reasignar el `business_id` desde este endpoint.
+
+        **Acceso:** Privado – Solo el propietario del negocio
+      operationId: updateEmployee
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID del empleado
+          schema:
+            type: string
+            format: uuid
+        - name: businessId
+          in: query
+          required: true
+          description: UUID del negocio (contexto multi-tenant)
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                profile_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+                full_name:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                email:
+                  type: string
+                  format: email
+                  nullable: true
+                phone:
+                  type: string
+                  maxLength: 20
+                  nullable: true
+                specialty:
+                  type: string
+                  maxLength: 100
+                  nullable: true
+                role:
+                  type: string
+                  enum: [owner, admin, manager, staff]
+                is_active:
+                  type: boolean
+            example:
+              specialty: "Corte y Barba"
+              phone: "+1-809-555-0201"
+      responses:
+        '200':
+          description: Empleado actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Employee'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Employees]
+      summary: Eliminar un empleado
+      description: |
+        Elimina un empleado del negocio.
+        Requiere el query param `?businessId` para validar el contexto multi-tenant.
+
+        **Acceso:** Privado – Solo el propietario del negocio
+      operationId: deleteEmployee
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID del empleado
+          schema:
+            type: string
+            format: uuid
+        - name: businessId
+          in: query
+          required: true
+          description: UUID del negocio (contexto multi-tenant)
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Empleado eliminado exitosamente
+          content:
+            application/json:
+              example:
+                success: true
+                message: "Empleado eliminado correctamente."
+                data: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 💇 SERVICES
+  # ─────────────────────────────────────────────────────────────────────────────
+  /services:
+    post:
+      tags: [Services]
+      summary: Crear un nuevo servicio
+      description: |
+        Crea un nuevo servicio para un negocio.
+
+        **Acceso:** Privado – Solo el propietario del negocio (ownership validado en el servicio)
+      operationId: createService
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - business_id
+                - name
+                - price
+                - duration_minutes
+              properties:
+                business_id:
+                  type: string
+                  format: uuid
+                  description: UUID del negocio
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                  description: Nombre del servicio
+                  example: "Corte Clásico"
+                description:
+                  type: string
+                  maxLength: 500
+                  nullable: true
+                  description: Descripción del servicio
+                  example: "Corte de cabello tradicional con navaja"
+                price:
+                  type: number
+                  format: double
+                  minimum: 0
+                  description: Precio del servicio (hasta 2 decimales)
+                  example: 25.00
+                duration_minutes:
+                  type: integer
+                  minimum: 1
+                  description: Duración en minutos
+                  example: 30
+                is_active:
+                  type: boolean
+                  default: true
+                  description: Estado activo del servicio
+            example:
+              business_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+              name: "Corte Clásico"
+              description: "Corte de cabello tradicional con navaja"
+              price: 25.00
+              duration_minutes: 30
+      responses:
+        '201':
+          description: Servicio creado exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Service'
+              example:
+                success: true
+                message: "Servicio creado correctamente."
+                data:
+                  id: "c3d4e5f6-a7b8-9012-cdef-345678901234"
+                  business_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  name: "Corte Clásico"
+                  description: "Corte de cabello tradicional con navaja"
+                  price: 25.00
+                  duration_minutes: 30
+                  is_active: true
+                  created_at: "2026-06-17T15:30:00Z"
+                  updated_at: "2026-06-17T15:30:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /services/business/{id}:
+    get:
+      tags: [Services]
+      summary: Listar servicios de un negocio
+      description: |
+        Retorna todos los servicios de un negocio.
+        Los propietarios y staff ven servicios activos e inactivos.
+        Los clientes solo ven servicios activos.
+
+        **Acceso:** Privado – Requiere Bearer Token
+      operationId: listServicesByBusiness
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID del negocio
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Lista de servicios obtenida exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Service'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /services/{id}:
+    put:
+      tags: [Services]
+      summary: Actualizar un servicio
+      description: |
+        Actualiza un servicio existente. Todos los campos son opcionales.
+        Requiere `?businessId` como query param para validar el contexto multi-tenant.
+
+        **Acceso:** Privado – Solo el propietario del negocio
+      operationId: updateService
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID del servicio
+          schema:
+            type: string
+            format: uuid
+        - name: businessId
+          in: query
+          required: true
+          description: UUID del negocio (contexto multi-tenant)
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                description:
+                  type: string
+                  maxLength: 500
+                  nullable: true
+                price:
+                  type: number
+                  format: double
+                  minimum: 0
+                duration_minutes:
+                  type: integer
+                  minimum: 1
+                is_active:
+                  type: boolean
+            example:
+              price: 30.00
+              name: "Corte Premium"
+      responses:
+        '200':
+          description: Servicio actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Service'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Services]
+      summary: Eliminar un servicio
+      description: |
+        Desactiva (soft delete) o elimina permanentemente un servicio.
+        - **Soft delete** (default): Cambia `is_active` a `false`.
+        - **Hard delete**: Agrega `?hard=true` al query. Fallará si el servicio
+          tiene citas activas asociadas (FK ON DELETE RESTRICT).
+
+        Requiere `?businessId` como query param.
+
+        **Acceso:** Privado – Solo el propietario del negocio
+      operationId: deleteService
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID del servicio
+          schema:
+            type: string
+            format: uuid
+        - name: businessId
+          in: query
+          required: true
+          description: UUID del negocio (contexto multi-tenant)
+          schema:
+            type: string
+            format: uuid
+        - name: hard
+          in: query
+          required: false
+          description: "`true` para hard delete permanente. Default: soft delete."
+          schema:
+            type: string
+            enum: ["true", "false"]
+      responses:
+        '200':
+          description: Servicio eliminado/desactivado exitosamente
+          content:
+            application/json:
+              example:
+                success: true
+                message: "Servicio eliminado correctamente."
+                data: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: No se puede eliminar porque tiene citas activas asociadas
+          content:
+            application/json:
+              example:
+                success: false
+                message: "No se puede eliminar el servicio porque tiene citas activas asociadas"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 🕒 SCHEDULES
+  # ─────────────────────────────────────────────────────────────────────────────
+  /schedules:
+    post:
+      tags: [Schedules]
+      summary: Crear un horario laboral
+      description: |
+        Crea un bloque de horario laboral para un empleado de un negocio.
+
+        **Validaciones:**
+        - `day_of_week`: 0 (Domingo) a 6 (Sábado)
+        - `start_time` y `end_time`: Formato HH:MM (24h)
+        - `end_time` debe ser posterior a `start_time`
+        - Se validan solapamientos con horarios existentes del mismo empleado
+
+        **Acceso:** Privado – Solo el propietario del negocio
+      operationId: createSchedule
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - business_id
+                - employee_id
+                - day_of_week
+                - start_time
+                - end_time
+              properties:
+                business_id:
+                  type: string
+                  format: uuid
+                  description: UUID del negocio
+                employee_id:
+                  type: string
+                  format: uuid
+                  description: UUID del empleado
+                day_of_week:
+                  type: integer
+                  minimum: 0
+                  maximum: 6
+                  description: "Día de la semana (0=Domingo, 1=Lunes, ..., 6=Sábado)"
+                  example: 1
+                start_time:
+                  type: string
+                  pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"
+                  description: Hora de inicio en formato HH:MM (24h)
+                  example: "09:00"
+                end_time:
+                  type: string
+                  pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"
+                  description: Hora de fin en formato HH:MM (24h)
+                  example: "18:00"
+                is_active:
+                  type: boolean
+                  default: true
+            example:
+              business_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+              employee_id: "b2c3d4e5-f6a7-8901-bcde-f23456789012"
+              day_of_week: 1
+              start_time: "09:00"
+              end_time: "18:00"
+      responses:
+        '201':
+          description: Horario creado exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Schedule'
+              example:
+                success: true
+                message: "Horario creado correctamente."
+                data:
+                  id: "d4e5f6a7-b8c9-0123-defa-456789012345"
+                  business_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  employee_id: "b2c3d4e5-f6a7-8901-bcde-f23456789012"
+                  day_of_week: 1
+                  start_time: "09:00"
+                  end_time: "18:00"
+                  is_active: true
+                  created_at: "2026-06-17T16:00:00Z"
+                  updated_at: "2026-06-17T16:00:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Solapamiento con un horario existente
+          content:
+            application/json:
+              example:
+                success: false
+                message: "El horario se solapa con un bloque existente del mismo empleado"
+
+  /schedules/business/{id}:
+    get:
+      tags: [Schedules]
+      summary: Listar horarios de un negocio
+      description: |
+        Retorna todos los horarios laborales de un negocio,
+        ordenados por día de la semana y hora de inicio.
+        Incluye datos del empleado asociado.
+
+        **Acceso:** Privado – Requiere Bearer Token
+      operationId: listSchedulesByBusiness
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID del negocio
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Lista de horarios obtenida exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Schedule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /schedules/{id}:
+    put:
+      tags: [Schedules]
+      summary: Actualizar un horario
+      description: |
+        Actualiza un horario laboral existente. Se re-validan solapamientos
+        al cambiar día u horario. Para desactivar sin eliminar: `{ is_active: false }`.
+
+        Requiere `?businessId` como query param.
+
+        **Acceso:** Privado – Solo el propietario del negocio
+      operationId: updateSchedule
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID del horario
+          schema:
+            type: string
+            format: uuid
+        - name: businessId
+          in: query
+          required: true
+          description: UUID del negocio (contexto multi-tenant)
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                day_of_week:
+                  type: integer
+                  minimum: 0
+                  maximum: 6
+                start_time:
+                  type: string
+                  pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"
+                end_time:
+                  type: string
+                  pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"
+                is_active:
+                  type: boolean
+            example:
+              start_time: "08:00"
+              end_time: "17:00"
+      responses:
+        '200':
+          description: Horario actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Schedule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    delete:
+      tags: [Schedules]
+      summary: Eliminar un horario
+      description: |
+        Elimina permanentemente un horario del negocio.
+        Para desactivar sin borrar, usar PUT con `{ is_active: false }`.
+
+        Requiere `?businessId` como query param.
+
+        **Acceso:** Privado – Solo el propietario del negocio
+      operationId: deleteSchedule
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID del horario
+          schema:
+            type: string
+            format: uuid
+        - name: businessId
+          in: query
+          required: true
+          description: UUID del negocio (contexto multi-tenant)
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Horario eliminado exitosamente
+          content:
+            application/json:
+              example:
+                success: true
+                message: "Horario eliminado correctamente."
+                data: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 📅 APPOINTMENTS (MÓDULO CORE)
+  # ─────────────────────────────────────────────────────────────────────────────
+  /appointments:
+    post:
+      tags: [Appointments]
+      summary: Crear una nueva cita
+      description: |
+        Agenda una nueva cita aplicando todas las reglas de negocio:
+
+        **Validaciones del servidor:**
+        - ❌ No se permiten fechas en el pasado
+        - ✅ El negocio debe existir y estar activo
+        - ✅ El servicio debe existir, estar activo y pertenecer al negocio
+        - ✅ El empleado debe existir, estar activo y pertenecer al negocio
+        - 🕒 El `end_time` se calcula automáticamente: `start_time + duration_minutes`
+        - 📅 La cita debe estar dentro del horario laboral del empleado
+        - 🔒 No se permite doble reserva (solapamiento de citas del mismo empleado)
+        - 📬 Se generan notificaciones automáticas al staff del negocio
+
+        **Acceso:** Privado – Usuario autenticado (cliente)
+      operationId: createAppointment
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - business_id
+                - service_id
+                - employee_id
+                - start_time
+                - client_name
+                - client_email
+              properties:
+                business_id:
+                  type: string
+                  format: uuid
+                  description: UUID del negocio
+                service_id:
+                  type: string
+                  format: uuid
+                  description: UUID del servicio a agendar
+                employee_id:
+                  type: string
+                  format: uuid
+                  description: UUID del empleado que atenderá
+                start_time:
+                  type: string
+                  format: date-time
+                  description: "Fecha/hora de inicio en ISO 8601 UTC (debe ser futura)"
+                  example: "2026-06-20T10:00:00Z"
+                client_name:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                  description: Nombre del cliente
+                  example: "María García"
+                client_email:
+                  type: string
+                  format: email
+                  maxLength: 254
+                  description: Email del cliente
+                  example: "maria@ejemplo.com"
+                client_phone:
+                  type: string
+                  maxLength: 30
+                  nullable: true
+                  description: Teléfono del cliente (opcional)
+                  example: "+1-809-555-0300"
+                notes:
+                  type: string
+                  maxLength: 500
+                  nullable: true
+                  description: Notas adicionales (opcional)
+                  example: "Prefiero corte con tijera"
+            example:
+              business_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+              service_id: "c3d4e5f6-a7b8-9012-cdef-345678901234"
+              employee_id: "b2c3d4e5-f6a7-8901-bcde-f23456789012"
+              start_time: "2026-06-20T10:00:00Z"
+              client_name: "María García"
+              client_email: "maria@ejemplo.com"
+              client_phone: "+1-809-555-0300"
+              notes: "Prefiero corte con tijera"
+      responses:
+        '201':
+          description: Cita agendada exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Appointment'
+              example:
+                success: true
+                message: "Cita agendada exitosamente."
+                data:
+                  id: "e5f6a7b8-c9d0-1234-efab-567890123456"
+                  business_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  client_id: "550e8400-e29b-41d4-a716-446655440000"
+                  employee_id: "b2c3d4e5-f6a7-8901-bcde-f23456789012"
+                  service_id: "c3d4e5f6-a7b8-9012-cdef-345678901234"
+                  start_time: "2026-06-20T10:00:00Z"
+                  end_time: "2026-06-20T10:30:00Z"
+                  status: "pending"
+                  client_name: "María García"
+                  client_email: "maria@ejemplo.com"
+                  client_phone: "+1-809-555-0300"
+                  notes: "Prefiero corte con tijera"
+                  created_at: "2026-06-17T16:30:00Z"
+                  updated_at: "2026-06-17T16:30:00Z"
+        '400':
+          description: Error de validación o regla de negocio
+          content:
+            application/json:
+              examples:
+                pastDate:
+                  summary: Fecha en el pasado
+                  value:
+                    success: false
+                    message: "No se pueden agendar citas en el pasado"
+                outsideSchedule:
+                  summary: Fuera del horario laboral
+                  value:
+                    success: false
+                    message: "La cita está fuera del horario laboral del empleado"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Negocio, servicio o empleado no encontrado
+          content:
+            application/json:
+              example:
+                success: false
+                message: "El servicio especificado no existe o no está activo"
+        '409':
+          description: Doble reserva – conflicto de horario
+          content:
+            application/json:
+              example:
+                success: false
+                message: "El empleado ya tiene una cita en ese horario"
+
+  /appointments/user:
+    get:
+      tags: [Appointments]
+      summary: Obtener citas del usuario autenticado
+      description: |
+        Lista las citas del usuario autenticado con paginación y filtros opcionales.
+
+        **Acceso:** Privado – Solo el usuario autenticado
+      operationId: listUserAppointments
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Filtrar por estado de la cita
+          schema:
+            type: string
+            enum: [pending, confirmed, cancelled, completed, no_show]
+        - name: page
+          in: query
+          required: false
+          description: Número de página (default 1)
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: limit
+          in: query
+          required: false
+          description: "Resultados por página (default 20, max 100)"
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Citas del usuario obtenidas exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          appointments:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Appointment'
+                          pagination:
+                            $ref: '#/components/schemas/PaginationMeta'
+              example:
+                success: true
+                message: "Citas del usuario obtenidas correctamente."
+                data:
+                  appointments:
+                    - id: "e5f6a7b8-c9d0-1234-efab-567890123456"
+                      business_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                      client_id: "550e8400-e29b-41d4-a716-446655440000"
+                      employee_id: "b2c3d4e5-f6a7-8901-bcde-f23456789012"
+                      service_id: "c3d4e5f6-a7b8-9012-cdef-345678901234"
+                      start_time: "2026-06-20T10:00:00Z"
+                      end_time: "2026-06-20T10:30:00Z"
+                      status: "pending"
+                      client_name: "María García"
+                      client_email: "maria@ejemplo.com"
+                      client_phone: "+1-809-555-0300"
+                      notes: "Prefiero corte con tijera"
+                      created_at: "2026-06-17T16:30:00Z"
+                      updated_at: "2026-06-17T16:30:00Z"
+                  pagination:
+                    page: 1
+                    limit: 20
+                    total: 1
+                    totalPages: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /appointments/business/{id}:
+    get:
+      tags: [Appointments]
+      summary: Obtener agenda de un negocio
+      description: |
+        Lista las citas de un negocio con paginación y filtros opcionales.
+        Solo accesible para dueños o empleados activos del negocio.
+
+        **Acceso:** Privado – Dueño o empleado activo del negocio
+      operationId: listBusinessAppointments
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID del negocio
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          required: false
+          description: Filtrar por estado
+          schema:
+            type: string
+            enum: [pending, confirmed, cancelled, completed, no_show]
+        - name: date
+          in: query
+          required: false
+          description: Filtrar por fecha específica (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+            example: "2026-06-20"
+        - name: employee_id
+          in: query
+          required: false
+          description: Filtrar por empleado específico
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Citas del negocio obtenidas exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          appointments:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Appointment'
+                          pagination:
+                            $ref: '#/components/schemas/PaginationMeta'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /appointments/{id}/status:
+    put:
+      tags: [Appointments]
+      summary: Cambiar estado de una cita
+      description: |
+        Actualiza el estado de una cita siguiendo el flujo de gestión del negocio.
+
+        **Transiciones válidas:**
+        | Estado Actual | → Estados Permitidos |
+        |---|---|
+        | `pending` | `confirmed`, `cancelled` |
+        | `confirmed` | `completed`, `no_show`, `cancelled` |
+
+        **Estados finales (no modificables):** `completed`, `no_show`, `cancelled`
+
+        Requiere `?businessId` como query param.
+
+        **Acceso:** Privado – Dueño o empleado del negocio
+      operationId: updateAppointmentStatus
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID de la cita
+          schema:
+            type: string
+            format: uuid
+        - name: businessId
+          in: query
+          required: true
+          description: UUID del negocio (contexto multi-tenant)
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [pending, confirmed, cancelled, completed, no_show]
+                  description: Nuevo estado de la cita
+                  example: "confirmed"
+            example:
+              status: "confirmed"
+      responses:
+        '200':
+          description: Estado actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Appointment'
+              example:
+                success: true
+                message: 'Estado de la cita actualizado a "confirmed".'
+                data:
+                  id: "e5f6a7b8-c9d0-1234-efab-567890123456"
+                  business_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  status: "confirmed"
+                  start_time: "2026-06-20T10:00:00Z"
+                  end_time: "2026-06-20T10:30:00Z"
+                  client_name: "María García"
+                  client_email: "maria@ejemplo.com"
+                  updated_at: "2026-06-17T17:00:00Z"
+        '400':
+          description: Transición de estado no permitida
+          content:
+            application/json:
+              example:
+                success: false
+                message: "Transición de estado no válida: no se puede pasar de 'completed' a 'pending'"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /appointments/{id}:
+    delete:
+      tags: [Appointments]
+      summary: Cancelar una cita
+      description: |
+        Cancela una cita (soft delete – cambia el estado a `cancelled`).
+        - **Clientes:** Solo pueden cancelar sus propias citas futuras.
+        - **Staff del negocio:** Pueden cancelar cualquier cita del negocio.
+
+        Requiere `?businessId` como query param.
+
+        **Acceso:** Privado – Usuario autenticado (cliente o staff)
+      operationId: cancelAppointment
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID de la cita
+          schema:
+            type: string
+            format: uuid
+        - name: businessId
+          in: query
+          required: true
+          description: UUID del negocio (contexto multi-tenant)
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Cita cancelada exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Appointment'
+              example:
+                success: true
+                message: "Cita cancelada correctamente."
+                data:
+                  id: "e5f6a7b8-c9d0-1234-efab-567890123456"
+                  status: "cancelled"
+                  updated_at: "2026-06-17T17:30:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: El cliente no puede cancelar citas de otros usuarios
+          content:
+            application/json:
+              example:
+                success: false
+                message: "No tienes permisos para cancelar esta cita"
+        '404':
+          $ref: '#/components/responses/NotFound'
