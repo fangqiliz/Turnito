@@ -40,12 +40,6 @@ info:
     Turnito soporta múltiples negocios (tenants). Las operaciones de escritura
     sobre recursos de un negocio requieren que el usuario sea propietario o
     empleado activo del negocio correspondiente.
-  contact:
-    name: Turnito Dev Team
-    email: dev@turnito.app
-  license:
-    name: Privada
-    url: https://turnito.app/license
 
 servers:
   - url: http://localhost:3000
