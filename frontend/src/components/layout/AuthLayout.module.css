@@ -1,0 +1,134 @@
+.layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.hero {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--color-bg-primary) 0%, #1a0e35 50%, var(--color-bg-primary) 100%);
+}
+
+.heroContent {
+  position: relative;
+  z-index: 2;
+  padding: var(--space-12);
+  max-width: 500px;
+}
+
+.heroBg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 30% 40%, rgba(124, 58, 237, 0.12) 0%, transparent 50%),
+    radial-gradient(circle at 70% 60%, rgba(168, 85, 247, 0.08) 0%, transparent 40%);
+  z-index: 1;
+}
+
+.logoArea {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.logoIcon {
+  color: var(--color-accent);
+}
+
+.logoText {
+  font-size: var(--font-size-4xl);
+  font-weight: var(--font-weight-extrabold);
+  background: linear-gradient(135deg, var(--color-accent-light), #c084fc, var(--color-accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.tagline {
+  font-size: var(--font-size-xl);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+  margin-bottom: var(--space-10);
+}
+
+.features {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.feature {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-base);
+}
+
+.featureDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  flex-shrink: 0;
+  box-shadow: 0 0 8px rgba(124, 58, 237, 0.5);
+}
+
+.formSide {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8);
+  background: var(--color-bg-primary);
+}
+
+.formContainer {
+  width: 100%;
+  max-width: 420px;
+  animation: fadeInUp 500ms ease-out;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 900px) {
+  .layout {
+    flex-direction: column;
+  }
+
+  .hero {
+    min-height: 200px;
+    padding: var(--space-8);
+  }
+
+  .heroContent {
+    padding: var(--space-6);
+    text-align: center;
+  }
+
+  .logoArea {
+    justify-content: center;
+  }
+
+  .features {
+    display: none;
+  }
+
+  .tagline {
+    font-size: var(--font-size-md);
+    margin-bottom: 0;
+  }
+
+  .formSide {
+    flex: none;
+    padding: var(--space-6);
+  }
+}
