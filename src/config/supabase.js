@@ -15,6 +15,28 @@ const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
   },
 });
 
+/**
+ * Crea un cliente Supabase autenticado con el JWT token de un usuario.
+ * Esto es necesario para que las políticas RLS funcionen correctamente,
+ * ya que auth.uid() se resolverá al ID del usuario propietario.
+ * 
+ * @param {string} userToken - Token JWT del usuario autenticado
+ * @returns {object} Cliente Supabase autenticado
+ */
+export const createAuthenticatedClient = (userToken) => {
+  return createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+    global: {
+      headers: {
+        Authorization: `Bearer ${userToken}`,
+      },
+    },
+  });
+};
+
 logger.info('🔌 Cliente de Supabase inicializado correctamente.');
 
 export default supabase;

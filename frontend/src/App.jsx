@@ -17,6 +17,8 @@ import EmployeesPage from './pages/dashboard/EmployeesPage'
 import ServicesPage from './pages/dashboard/ServicesPage'
 import SchedulesPage from './pages/dashboard/SchedulesPage'
 import BusinessSettingsPage from './pages/dashboard/BusinessSettingsPage'
+import BusinessesPage from './pages/dashboard/BusinessesPage'
+import CreateBusinessPage from './pages/dashboard/CreateBusinessPage'
 import ProfilePage from './pages/dashboard/ProfilePage'
 
 import MyAppointmentsPage from './pages/client/MyAppointmentsPage'
@@ -70,6 +72,8 @@ export default function App() {
               <Route path="/dashboard/employees" element={<EmployeesPage />} />
               <Route path="/dashboard/services" element={<ServicesPage />} />
               <Route path="/dashboard/schedules" element={<SchedulesPage />} />
+              <Route path="/dashboard/businesses" element={<BusinessesPage />} />
+              <Route path="/dashboard/businesses/create" element={<CreateBusinessPage />} />
               <Route path="/dashboard/settings" element={<BusinessSettingsPage />} />
               <Route path="/dashboard/profile" element={<ProfilePage />} />
             </Route>

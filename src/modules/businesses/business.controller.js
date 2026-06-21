@@ -1,6 +1,7 @@
 import businessService from './business.service.js';
 import { sendSuccess } from '../../utils/apiResponse.js';
 import ApiError from '../../utils/apiError.js';
+import { createAuthenticatedClient } from '../../config/supabase.js';
 
 /**
  * Controlador del módulo Businesses.
@@ -9,15 +10,16 @@ import ApiError from '../../utils/apiError.js';
 class BusinessController {
   /**
    * POST /businesses
-   * Crea un nuevo negocio.
-   * Solo usuarios con rol 'admin' pueden ejecutar esta acción (guard en las rutas).
+   * Crea un nuevo negocio asociado al usuario autenticado como propietario.
    *
    * @route  POST /businesses
-   * @access Privado – Solo admin (verificado vía metadata de Supabase Auth)
+   * @access Privado
    */
   create = async (req, res, next) => {
     try {
-      const business = await businessService.create(req.body, req.user.id);
+      // Crear un cliente autenticado con el JWT del usuario para que RLS funcione
+      const authenticatedClient = createAuthenticatedClient(req.token);
+      const business = await businessService.create(req.body, req.user.id, authenticatedClient);
 
       return sendSuccess(res, 'Negocio creado correctamente.', business, 201);
     } catch (error) {
@@ -69,7 +71,9 @@ class BusinessController {
    */
   update = async (req, res, next) => {
     try {
-      const updated = await businessService.update(req.params.id, req.body, req.user.id);
+      // Crear un cliente autenticado con el JWT del usuario para que RLS funcione
+      const authenticatedClient = createAuthenticatedClient(req.token);
+      const updated = await businessService.update(req.params.id, req.body, req.user.id, authenticatedClient);
 
       return sendSuccess(res, 'Negocio actualizado correctamente.', updated);
     } catch (error) {

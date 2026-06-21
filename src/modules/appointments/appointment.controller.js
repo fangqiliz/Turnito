@@ -1,6 +1,7 @@
 import appointmentService from './appointment.service.js';
 import { sendSuccess } from '../../utils/apiResponse.js';
 import supabase from '../../config/supabase.js';
+import { createAuthenticatedClient } from '../../config/supabase.js';
 
 /**
  * AppointmentController – Módulo Appointments.
@@ -24,8 +25,9 @@ class AppointmentController {
     try {
       // El usuario puede ser autenticado (req.user) o anónimo (null)
       const clientId = req.user?.id ?? null;
+      const authenticatedClient = req.token ? createAuthenticatedClient(req.token) : null;
 
-      const appointment = await appointmentService.create(req.body, clientId);
+      const appointment = await appointmentService.create(req.body, clientId, authenticatedClient);
 
       return sendSuccess(res, 'Cita agendada exitosamente.', appointment, 201);
     } catch (error) {
@@ -106,12 +108,14 @@ class AppointmentController {
       const { id: appointmentId } = req.params;
       const { businessId } = req.query;
       const { status } = req.body;
+      const authenticatedClient = createAuthenticatedClient(req.token);
 
       const updated = await appointmentService.updateStatus(
         appointmentId,
         businessId,
         status,
-        req.user.id
+        req.user.id,
+        authenticatedClient
       );
 
       return sendSuccess(res, `Estado de la cita actualizado a "${status}".`, updated);
@@ -140,6 +144,7 @@ class AppointmentController {
       const { id: appointmentId } = req.params;
       const { businessId } = req.query;
       const requesterId = req.user.id;
+      const authenticatedClient = createAuthenticatedClient(req.token);
 
       // Determinar si el solicitante es staff del negocio
       const isStaff = await this.#checkIsStaff(requesterId, businessId);
@@ -148,7 +153,8 @@ class AppointmentController {
         appointmentId,
         businessId,
         requesterId,
-        isStaff
+        isStaff,
+        authenticatedClient
       );
 
       return sendSuccess(res, 'Cita cancelada correctamente.', cancelled);

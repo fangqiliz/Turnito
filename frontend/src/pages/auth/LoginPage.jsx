@@ -4,6 +4,8 @@ import { Mail, Lock } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
+import ErrorModal from '../../components/ui/ErrorModal'
+import { useErrorModal } from '../../hooks/useErrorModal'
 import styles from './AuthPages.module.css'
 
 export default function LoginPage() {
@@ -11,17 +13,17 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const from = location.state?.from?.pathname || '/dashboard'
+  const { errorMessage, showError, closeError, duration } = useErrorModal()
 
   const [values, setValues] = useState({ email: '', password: '' })
   const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
-  const [generalError, setGeneralError] = useState('')
 
   const handleChange = (e) => {
     const { name, value } = e.target
     setValues(prev => ({ ...prev, [name]: value }))
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }))
-    if (generalError) setGeneralError('')
+    if (errorMessage) closeError()
   }
 
   const validate = () => {
@@ -46,7 +48,7 @@ export default function LoginPage() {
       await login(values.email, values.password)
       navigate(from, { replace: true })
     } catch (error) {
-      setGeneralError('Credenciales incorrectas. Verifica tu correo y contraseña.')
+      showError('Credenciales incorrectas. Verifica tu correo y contraseña.')
     } finally {
       setLoading(false)
     }
@@ -56,10 +58,6 @@ export default function LoginPage() {
     <div className={styles.page}>
       <h2 className={styles.title}>Bienvenido de vuelta</h2>
       <p className={styles.subtitle}>Ingresa tus credenciales para acceder a tu cuenta</p>
-
-      {generalError && (
-        <div className={styles.errorBanner}>{generalError}</div>
-      )}
 
       <form onSubmit={handleSubmit} className={styles.form}>
         <Input
@@ -95,6 +93,13 @@ export default function LoginPage() {
         ¿No tienes cuenta?{' '}
         <Link to="/register" className={styles.link}>Regístrate aquí</Link>
       </p>
+
+      <ErrorModal
+        isOpen={!!errorMessage}
+        message={errorMessage}
+        onClose={closeError}
+        autoCloseDuration={duration}
+      />
     </div>
   )
 }

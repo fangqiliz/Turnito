@@ -7,46 +7,17 @@ import {
 } from './business.validation.js';
 import validate from '../../middlewares/validate.js';
 import { requireAuth } from '../../middlewares/auth.js';
-import ApiError from '../../utils/apiError.js';
 
 const router = Router();
 
-/* -----------------------------------------------------------------------
- * Middleware: requireAdmin
- * Verifica que el usuario autenticado tenga el rol 'admin' en sus metadatos
- * de Supabase Auth (user_metadata.role === 'admin').
- *
- * NOTA: Para producción se recomienda manejar roles a través de
- * `app_metadata` (server-side) en lugar de `user_metadata` para evitar
- * que el propio usuario los modifique desde el cliente.
- * ----------------------------------------------------------------------- */
-const requireAdmin = (req, res, next) => {
-  try {
-    const role =
-      req.user?.app_metadata?.role ||
-      req.user?.user_metadata?.role;
-
-    if (role !== 'admin') {
-      throw ApiError.forbidden(
-        'Acceso denegado: solo los administradores pueden realizar esta acción.'
-      );
-    }
-
-    next();
-  } catch (error) {
-    next(error);
-  }
-};
-
 /**
  * @route  POST /businesses
- * @desc   Crea un nuevo negocio (solo admin)
- * @access Privado – Admin
+ * @desc   Crea un nuevo negocio asociado al usuario autenticado
+ * @access Privado
  */
 router.post(
   '/',
   requireAuth,
-  requireAdmin,
   validate({ body: createBusinessSchema }),
   businessController.create
 );

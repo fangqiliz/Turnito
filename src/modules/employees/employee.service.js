@@ -80,8 +80,10 @@ class EmployeeService {
    *
    * @param {object} payload   - Datos validados del empleado
    * @param {string} requesterId - UUID del usuario autenticado
+   * @param {object} [authenticatedClient] - Cliente Supabase autenticado con JWT del usuario (para RLS)
    */
-  async create(payload, requesterId) {
+  async create(payload, requesterId, authenticatedClient = null) {
+    const client = authenticatedClient ?? supabase;
     const { business_id, profile_id } = payload;
 
     // 1. Validar existencia del negocio y ownership
@@ -105,7 +107,7 @@ class EmployeeService {
     }
 
     // 3. Insertar
-    const { data: employee, error } = await supabase
+    const { data: employee, error } = await client
       .from('employees')
       .insert({
         business_id,
@@ -187,8 +189,10 @@ class EmployeeService {
    * @param {string} businessId  - UUID del negocio (tenant) — extraído del registro
    * @param {object} payload     - Campos a actualizar (validados por Zod)
    * @param {string} requesterId - UUID del usuario autenticado
+   * @param {object} [authenticatedClient] - Cliente Supabase autenticado con JWT del usuario (para RLS)
    */
-  async update(employeeId, businessId, payload, requesterId) {
+  async update(employeeId, businessId, payload, requesterId, authenticatedClient = null) {
+    const client = authenticatedClient ?? supabase;
     // 1. Validar existencia del negocio y ownership
     const business = await this.#assertBusinessExists(businessId);
     this.#assertIsOwner(business, requesterId);
@@ -214,7 +218,7 @@ class EmployeeService {
     }
 
     // 4. Actualizar
-    const { data: updated, error } = await supabase
+    const { data: updated, error } = await client
       .from('employees')
       .update(payload)
       .eq('id', employeeId)
@@ -244,8 +248,10 @@ class EmployeeService {
    * @param {string} employeeId  - UUID del empleado
    * @param {string} businessId  - UUID del negocio (tenant)
    * @param {string} requesterId - UUID del usuario autenticado
+   * @param {object} [authenticatedClient] - Cliente Supabase autenticado con JWT del usuario (para RLS)
    */
-  async remove(employeeId, businessId, requesterId) {
+  async remove(employeeId, businessId, requesterId, authenticatedClient = null) {
+    const client = authenticatedClient ?? supabase;
     // 1. Validar existencia del negocio y ownership
     const business = await this.#assertBusinessExists(businessId);
     this.#assertIsOwner(business, requesterId);
@@ -254,7 +260,7 @@ class EmployeeService {
     await this.#assertEmployeeExists(employeeId, businessId);
 
     // 3. Eliminar
-    const { error } = await supabase
+    const { error } = await client
       .from('employees')
       .delete()
       .eq('id', employeeId);

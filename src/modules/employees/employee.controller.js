@@ -1,5 +1,6 @@
 import employeeService from './employee.service.js';
 import { sendSuccess } from '../../utils/apiResponse.js';
+import { createAuthenticatedClient } from '../../config/supabase.js';
 
 /**
  * Controlador del módulo Employees.
@@ -18,7 +19,9 @@ class EmployeeController {
    */
   create = async (req, res, next) => {
     try {
-      const employee = await employeeService.create(req.body, req.user.id);
+      // Crear un cliente autenticado con el JWT del usuario
+      const authenticatedClient = createAuthenticatedClient(req.token);
+      const employee = await employeeService.create(req.body, req.user.id, authenticatedClient);
 
       return sendSuccess(
         res,
@@ -68,11 +71,14 @@ class EmployeeController {
       const { id: employeeId } = req.params;
       const { businessId } = req.query;
 
+      // Crear un cliente autenticado con el JWT del usuario
+      const authenticatedClient = createAuthenticatedClient(req.token);
       const updated = await employeeService.update(
         employeeId,
         businessId,
         req.body,
-        req.user.id
+        req.user.id,
+        authenticatedClient
       );
 
       return sendSuccess(res, 'Empleado actualizado correctamente.', updated);
@@ -93,7 +99,9 @@ class EmployeeController {
       const { id: employeeId } = req.params;
       const { businessId } = req.query;
 
-      await employeeService.remove(employeeId, businessId, req.user.id);
+      // Crear un cliente autenticado con el JWT del usuario
+      const authenticatedClient = createAuthenticatedClient(req.token);
+      await employeeService.remove(employeeId, businessId, req.user.id, authenticatedClient);
 
       return sendSuccess(res, 'Empleado eliminado correctamente.', null, 200);
     } catch (error) {

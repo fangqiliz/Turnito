@@ -1,5 +1,6 @@
 import userService from './user.service.js';
 import { sendSuccess } from '../../utils/apiResponse.js';
+import { createAuthenticatedClient } from '../../config/supabase.js';
 
 /**
  * Controlador de Usuarios / Perfiles
@@ -13,7 +14,9 @@ class UserController {
       // req.user es inyectado por el middleware requireAuth
       const userId = req.user.id;
       
-      const profileData = await userService.getProfile(userId);
+      // Crear un cliente autenticado con el JWT del usuario
+      const authenticatedClient = createAuthenticatedClient(req.token);
+      const profileData = await userService.getProfile(userId, authenticatedClient);
       
       return sendSuccess(
         res,
@@ -34,10 +37,12 @@ class UserController {
       const userId = req.user.id;
       const { fullName, avatarUrl } = req.body;
       
+      // Crear un cliente autenticado con el JWT del usuario
+      const authenticatedClient = createAuthenticatedClient(req.token);
       const updatedProfile = await userService.updateProfile(userId, {
         fullName,
         avatarUrl,
-      });
+      }, authenticatedClient);
       
       return sendSuccess(
         res,
