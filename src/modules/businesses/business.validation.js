@@ -19,7 +19,7 @@ const toSlug = (text) =>
 
 /**
  * Esquema de validación para la creación de un negocio.
- * Solo administradores pueden acceder a este endpoint (validado en el controlador).
+ * El slug se deriva automáticamente del nombre si no se proporciona.
  */
 export const createBusinessSchema = z.object({
   name: z

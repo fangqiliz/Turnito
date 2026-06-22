@@ -1,12 +1,13 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, CalendarDays, Users, Scissors,
-  Clock, Settings, ChevronLeft, ChevronRight, Calendar
+  Clock, Settings, ChevronLeft, ChevronRight, Calendar, Building2
 } from 'lucide-react'
 import styles from './Sidebar.module.css'
 
 const NAV_ITEMS = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Inicio', end: true },
+  { to: '/dashboard/businesses', icon: Building2, label: 'Negocios' },
   { to: '/dashboard/appointments', icon: CalendarDays, label: 'Citas' },
   { to: '/dashboard/employees', icon: Users, label: 'Empleados' },
   { to: '/dashboard/services', icon: Scissors, label: 'Servicios' },

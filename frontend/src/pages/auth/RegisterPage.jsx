@@ -4,24 +4,26 @@ import { Mail, Lock, User } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
+import ErrorModal from '../../components/ui/ErrorModal'
+import { useErrorModal } from '../../hooks/useErrorModal'
 import styles from './AuthPages.module.css'
 
 export default function RegisterPage() {
   const { register } = useAuth()
   const navigate = useNavigate()
+  const { errorMessage, showError, closeError, duration } = useErrorModal()
 
   const [values, setValues] = useState({
     fullName: '', email: '', password: '', confirmPassword: ''
   })
   const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
-  const [generalError, setGeneralError] = useState('')
 
   const handleChange = (e) => {
     const { name, value } = e.target
     setValues(prev => ({ ...prev, [name]: value }))
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }))
-    if (generalError) setGeneralError('')
+    if (errorMessage) closeError()
   }
 
   const getPasswordStrength = () => {
@@ -63,7 +65,7 @@ export default function RegisterPage() {
       await register(values.email, values.password, values.fullName.trim())
       navigate('/dashboard', { replace: true })
     } catch (error) {
-      setGeneralError(error.message || 'Error al crear la cuenta. Intenta de nuevo.')
+      showError(error.message || 'Error al crear la cuenta. Intenta de nuevo.')
     } finally {
       setLoading(false)
     }
@@ -75,10 +77,6 @@ export default function RegisterPage() {
     <div className={styles.page}>
       <h2 className={styles.title}>Crear Cuenta</h2>
       <p className={styles.subtitle}>Regístrate para empezar a gestionar tus citas</p>
-
-      {generalError && (
-        <div className={styles.errorBanner}>{generalError}</div>
-      )}
 
       <form onSubmit={handleSubmit} className={styles.form}>
         <Input
@@ -155,6 +153,13 @@ export default function RegisterPage() {
         ¿Ya tienes cuenta?{' '}
         <Link to="/login" className={styles.link}>Inicia sesión</Link>
       </p>
+
+      <ErrorModal
+        isOpen={!!errorMessage}
+        message={errorMessage}
+        onClose={closeError}
+        autoCloseDuration={duration}
+      />
     </div>
   )
 }

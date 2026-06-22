@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { CalendarDays, Users, Clock, TrendingUp } from 'lucide-react'
 import { useBusiness } from '../../context/BusinessContext'
 import api from '../../config/api'
@@ -10,6 +11,7 @@ import { es } from 'date-fns/locale'
 import styles from './DashboardPages.module.css'
 
 export default function OverviewPage() {
+  const navigate = useNavigate()
   const { activeBusiness } = useBusiness()
   const [appointments, setAppointments] = useState([])
   const [loading, setLoading] = useState(true)
@@ -46,6 +48,8 @@ export default function OverviewPage() {
       <EmptyState
         title="Sin negocio seleccionado"
         description="Crea o selecciona un negocio para comenzar a gestionar tus citas."
+        actionLabel="Crear Negocio"
+        onAction={() => navigate('/dashboard/businesses/create')}
       />
     )
   }

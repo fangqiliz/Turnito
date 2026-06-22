@@ -1,5 +1,6 @@
 import serviceService from './service.service.js';
 import { sendSuccess } from '../../utils/apiResponse.js';
+import { createAuthenticatedClient } from '../../config/supabase.js';
 
 /**
  * Controlador del módulo Services.
@@ -21,7 +22,8 @@ class ServiceController {
    */
   create = async (req, res, next) => {
     try {
-      const service = await serviceService.create(req.body, req.user.id);
+      const authenticatedClient = createAuthenticatedClient(req.token);
+      const service = await serviceService.create(req.body, req.user.id, authenticatedClient);
 
       return sendSuccess(res, 'Servicio creado correctamente.', service, 201);
     } catch (error) {
@@ -59,12 +61,14 @@ class ServiceController {
     try {
       const { id: serviceId } = req.params;
       const { businessId } = req.query;
+      const authenticatedClient = createAuthenticatedClient(req.token);
 
       const updated = await serviceService.update(
         serviceId,
         businessId,
         req.body,
-        req.user.id
+        req.user.id,
+        authenticatedClient
       );
 
       return sendSuccess(res, 'Servicio actualizado correctamente.', updated);
@@ -86,6 +90,7 @@ class ServiceController {
     try {
       const { id: serviceId } = req.params;
       const { businessId, hard } = req.query;
+      const authenticatedClient = createAuthenticatedClient(req.token);
 
       // Convertir el query string 'true'/'false' a boolean
       const isHardDelete = hard === 'true';
@@ -94,7 +99,8 @@ class ServiceController {
         serviceId,
         businessId,
         req.user.id,
-        { hard: isHardDelete }
+        { hard: isHardDelete },
+        authenticatedClient
       );
 
       const message = isHardDelete

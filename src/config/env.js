@@ -9,6 +9,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   SUPABASE_URL: z.string().url('SUPABASE_URL debe ser una URL válida'),
   SUPABASE_ANON_KEY: z.string().min(1, 'SUPABASE_ANON_KEY es requerido'),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   CORS_ORIGIN: z.string().default('*'),
 });
 

@@ -18,10 +18,14 @@ class BusinessService {
    * @param {string} [payload.address]
    * @param {string} [payload.logo_url]
    * @param {string} ownerId - UUID del usuario propietario (auth.users)
+   * @param {object} [authenticatedClient] - Cliente Supabase autenticado con JWT del usuario (para RLS)
    * @returns {Promise<object>} Negocio creado
    */
-  async create(payload, ownerId) {
+  async create(payload, ownerId, authenticatedClient = null) {
     const { name, slug, description, phone, address, logo_url } = payload;
+    
+    // Usar el cliente autenticado para garantizar que RLS funcione correctamente
+    const client = authenticatedClient ?? supabase;
 
     // Verificar unicidad del slug antes de intentar insertar
     const { data: existing } = await supabase
@@ -36,7 +40,7 @@ class BusinessService {
       );
     }
 
-    const { data: business, error } = await supabase
+    const { data: business, error } = await client
       .from('businesses')
       .insert({
         owner_id: ownerId,
@@ -128,9 +132,12 @@ class BusinessService {
    * @param {string}  businessId  - UUID del negocio a actualizar
    * @param {object}  payload     - Campos a actualizar
    * @param {string}  requesterId - UUID del usuario que hace la solicitud
+   * @param {object} [authenticatedClient] - Cliente Supabase autenticado con JWT del usuario (para RLS)
    * @returns {Promise<object>} Negocio actualizado
    */
-  async update(businessId, payload, requesterId) {
+  async update(businessId, payload, requesterId, authenticatedClient = null) {
+    const client = authenticatedClient ?? supabase;
+    
     // 1. Obtener el negocio para validar ownership
     const { data: business, error: fetchError } = await supabase
       .from('businesses')
@@ -166,7 +173,7 @@ class BusinessService {
     }
 
     // 4. Realizar la actualización
-    const { data: updated, error: updateError } = await supabase
+    const { data: updated, error: updateError } = await client
       .from('businesses')
       .update(payload)
       .eq('id', businessId)
