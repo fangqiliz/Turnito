@@ -29,7 +29,7 @@ class UserService {
     // 2. Obtener los negocios de los cuales el usuario es dueño
     const { data: ownedBusinesses, error: ownedError } = await client
       .from('businesses')
-      .select('id, name, slug, logo_url, created_at')
+      .select('id, name, slug, description, phone, address, logo_url, owner_id, created_at, updated_at')
       .eq('owner_id', userId);
 
     // 3. Obtener los negocios en los que trabaja como empleado
