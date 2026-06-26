@@ -82,11 +82,9 @@ class ServiceService {
    *
    * @param {object} payload     - Datos validados (Zod)
    * @param {string} requesterId - UUID del usuario autenticado
-   * @param {object} [authenticatedClient] - Cliente Supabase autenticado con JWT del usuario (para RLS)
    * @returns {Promise<object>}  Servicio creado
    */
-  async create(payload, requesterId, authenticatedClient = null) {
-    const client = authenticatedClient ?? supabase;
+  async create(payload, requesterId) {
     const { business_id, name, description, price, duration_minutes, is_active } = payload;
 
     // 1. Validar existencia del negocio y ownership
@@ -94,7 +92,7 @@ class ServiceService {
     this.#assertIsOwner(business, requesterId);
 
     // 2. Insertar el servicio
-    const { data: service, error } = await client
+    const { data: service, error } = await supabase
       .from('services')
       .insert({
         business_id,
@@ -148,11 +146,9 @@ class ServiceService {
    * @param {string} businessId  - UUID del negocio (contexto multi-tenant)
    * @param {object} payload     - Campos a actualizar (validados por Zod)
    * @param {string} requesterId - UUID del usuario autenticado
-   * @param {object} [authenticatedClient] - Cliente Supabase autenticado con JWT del usuario (para RLS)
    * @returns {Promise<object>}  Servicio actualizado
    */
-  async update(serviceId, businessId, payload, requesterId, authenticatedClient = null) {
-    const client = authenticatedClient ?? supabase;
+  async update(serviceId, businessId, payload, requesterId) {
     // 1. Validar existencia del negocio y ownership
     const business = await this.#assertBusinessExists(businessId);
     this.#assertIsOwner(business, requesterId);
@@ -161,7 +157,7 @@ class ServiceService {
     await this.#assertServiceExists(serviceId, businessId);
 
     // 3. Actualizar
-    const { data: updated, error } = await client
+    const { data: updated, error } = await supabase
       .from('services')
       .update(payload)
       .eq('id', serviceId)
@@ -189,11 +185,9 @@ class ServiceService {
    * @param {string}  requesterId - UUID del usuario autenticado
    * @param {object}  [opts]      - Opciones adicionales
    * @param {boolean} [opts.hard] - Si true, realiza hard delete
-   * @param {object} [authenticatedClient] - Cliente Supabase autenticado con JWT del usuario (para RLS)
    * @returns {Promise<object|true>} Servicio desactivado o true si hard delete
    */
-  async remove(serviceId, businessId, requesterId, opts = { hard: false }, authenticatedClient = null) {
-    const client = authenticatedClient ?? supabase;
+  async remove(serviceId, businessId, requesterId, opts = { hard: false }) {
     // 1. Validar existencia del negocio y ownership
     const business = await this.#assertBusinessExists(businessId);
     this.#assertIsOwner(business, requesterId);
@@ -203,7 +197,7 @@ class ServiceService {
 
     // 3a. Hard delete
     if (opts.hard) {
-      const { error } = await client
+      const { error } = await supabase
         .from('services')
         .delete()
         .eq('id', serviceId);
@@ -223,7 +217,7 @@ class ServiceService {
     }
 
     // 3b. Soft delete: marcar como inactivo
-    const { data: deactivated, error } = await client
+    const { data: deactivated, error } = await supabase
       .from('services')
       .update({ is_active: false })
       .eq('id', serviceId)

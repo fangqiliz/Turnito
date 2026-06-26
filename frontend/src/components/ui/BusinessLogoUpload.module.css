@@ -1,0 +1,148 @@
+/* BusinessLogoUpload.module.css */
+
+/* ── Zona principal ── */
+.uploadArea {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+/* ── Dropzone / trigger ── */
+.dropzone {
+  position: relative;
+  border: 2px dashed var(--color-border-hover);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-tertiary);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast);
+  overflow: hidden;
+}
+
+.dropzone:hover,
+.dropzone:focus-visible {
+  border-color: var(--color-accent);
+  background: var(--color-accent-subtle);
+  outline: none;
+}
+
+.dropzone.hasPreview {
+  border-style: solid;
+  border-color: var(--color-border);
+}
+
+.dropzone.hasPreview:hover {
+  border-color: var(--color-accent);
+}
+
+/* ── Preview de imagen ── */
+.preview {
+  width: 100%;
+  max-height: 160px;
+  object-fit: contain;
+  padding: var(--space-4);
+  display: block;
+  transition: filter var(--transition-fast);
+}
+
+.dropzone:hover .preview {
+  filter: brightness(0.65);
+}
+
+/* ── Placeholder vacío ── */
+.emptyContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-8) var(--space-4);
+  color: var(--color-text-muted);
+  text-align: center;
+  transition: color var(--transition-fast);
+}
+
+.dropzone:hover .emptyContent {
+  color: var(--color-accent-light);
+}
+
+.emptyText {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.emptyHint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* ── Overlay encima del preview ── */
+.previewOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.dropzone:hover .previewOverlay {
+  opacity: 1;
+}
+
+/* ── Loading overlay ── */
+.loadingOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+/* ── Error ── */
+.error {
+  font-size: var(--font-size-xs);
+  color: var(--color-danger);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* ── Footer con hint ── */
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}

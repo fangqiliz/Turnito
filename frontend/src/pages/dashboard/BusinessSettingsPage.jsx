@@ -6,6 +6,7 @@ import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import Spinner from '../../components/ui/Spinner'
 import EmptyState from '../../components/ui/EmptyState'
+import BusinessLogoUpload from '../../components/ui/BusinessLogoUpload'
 import toast from 'react-hot-toast'
 import styles from './DashboardPages.module.css'
 
@@ -26,6 +27,15 @@ export default function BusinessSettingsPage() {
     }
   }, [activeBusiness])
 
+  /**
+   * Cuando BusinessLogoUpload termina de subir con éxito,
+   * actualiza el form con la nueva URL para que se guarde junto al resto de campos.
+   */
+  const handleLogoSuccess = (url) => {
+    setForm((prev) => ({ ...prev, logo_url: url }))
+    toast.success(url ? 'Logo actualizado correctamente' : 'Logo eliminado')
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.name.trim()) { toast.error('El nombre es requerido'); return }
@@ -34,8 +44,11 @@ export default function BusinessSettingsPage() {
       await api.put(`/businesses/${activeBusiness.id}`, form)
       toast.success('Negocio actualizado')
       refreshBusinessData()
-    } catch (err) { toast.error(err.message || 'Error al actualizar') }
-    finally { setLoading(false) }
+    } catch (err) {
+      toast.error(err.message || 'Error al actualizar')
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (!activeBusiness) return <EmptyState icon={Building2} title="Sin negocio" description="Selecciona un negocio para configurar." />
@@ -52,13 +65,21 @@ export default function BusinessSettingsPage() {
       <div className={styles.section}>
         <h3 className={styles.sectionTitle}>Información del Negocio</h3>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)', maxWidth: '600px' }}>
-          <Input label="Nombre del Negocio" name="name" value={form.name} onChange={(e) => setForm(p => ({ ...p, name: e.target.value }))} required />
-          <Input label="Descripción" name="description" value={form.description} onChange={(e) => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Una breve descripción de tu negocio" />
+          <Input label="Nombre del Negocio" name="name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required />
+          <Input label="Descripción" name="description" value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} placeholder="Una breve descripción de tu negocio" />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
-            <Input label="Teléfono" name="phone" value={form.phone} onChange={(e) => setForm(p => ({ ...p, phone: e.target.value }))} placeholder="+1-809-555-0100" />
-            <Input label="Dirección" name="address" value={form.address} onChange={(e) => setForm(p => ({ ...p, address: e.target.value }))} placeholder="Av. Principal #123" />
+            <Input label="Teléfono" name="phone" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} placeholder="+1-809-555-0100" />
+            <Input label="Dirección" name="address" value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} placeholder="Av. Principal #123" />
           </div>
-          <Input label="URL del Logo" name="logo_url" value={form.logo_url} onChange={(e) => setForm(p => ({ ...p, logo_url: e.target.value }))} placeholder="https://..." />
+
+          {/* Logo con subida directa */}
+          <BusinessLogoUpload
+            currentUrl={form.logo_url}
+            businessId={activeBusiness.id}
+            onSuccess={handleLogoSuccess}
+            disabled={loading}
+          />
+
           <Button type="submit" loading={loading} icon={Save} style={{ alignSelf: 'flex-start' }}>
             Guardar Cambios
           </Button>

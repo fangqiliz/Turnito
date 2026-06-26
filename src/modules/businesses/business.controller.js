@@ -1,7 +1,6 @@
 import businessService from './business.service.js';
 import { sendSuccess } from '../../utils/apiResponse.js';
 import ApiError from '../../utils/apiError.js';
-import { createAuthenticatedClient } from '../../config/supabase.js';
 
 /**
  * Controlador del módulo Businesses.
@@ -17,9 +16,7 @@ class BusinessController {
    */
   create = async (req, res, next) => {
     try {
-      // Crear un cliente autenticado con el JWT del usuario para que RLS funcione
-      const authenticatedClient = createAuthenticatedClient(req.token);
-      const business = await businessService.create(req.body, req.user.id, authenticatedClient);
+      const business = await businessService.create(req.body, req.user.id);
 
       return sendSuccess(res, 'Negocio creado correctamente.', business, 201);
     } catch (error) {
@@ -71,9 +68,7 @@ class BusinessController {
    */
   update = async (req, res, next) => {
     try {
-      // Crear un cliente autenticado con el JWT del usuario para que RLS funcione
-      const authenticatedClient = createAuthenticatedClient(req.token);
-      const updated = await businessService.update(req.params.id, req.body, req.user.id, authenticatedClient);
+      const updated = await businessService.update(req.params.id, req.body, req.user.id);
 
       return sendSuccess(res, 'Negocio actualizado correctamente.', updated);
     } catch (error) {

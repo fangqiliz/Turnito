@@ -6,10 +6,11 @@ const API_URL = import.meta.env.VITE_API_URL || ''
  * Cliente API centralizado para comunicación con el backend Express.
  * Obtiene el JWT de Supabase Auth y lo inyecta automáticamente.
  */
-async function getAuthHeaders() {
+async function getAuthHeaders(includeContentType = true) {
   const { data: { session } } = await supabase.auth.getSession()
-  const headers = {
-    'Content-Type': 'application/json',
+  const headers = {}
+  if (includeContentType) {
+    headers['Content-Type'] = 'application/json'
   }
   if (session?.access_token) {
     headers['Authorization'] = `Bearer ${session.access_token}`
@@ -69,6 +70,22 @@ export const api = {
     const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'DELETE',
       headers,
+    })
+    return handleResponse(response)
+  },
+
+  /**
+   * Envía un FormData como multipart/form-data.
+   * No establece Content-Type manualmente para que el browser
+   * genere el boundary correcto automáticamente.
+   */
+  async upload(endpoint, formData) {
+    // Sin Content-Type: el browser lo calcula con el boundary
+    const headers = await getAuthHeaders(false)
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'POST',
+      headers,
+      body: formData,
     })
     return handleResponse(response)
   },

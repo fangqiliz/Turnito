@@ -203,7 +203,6 @@ class AppointmentService {
    * @param {string} [excludeId] - ID de la cita a excluir (para updates)
    */
   async #assertNoOverlap(employeeId, startTime, endTime, excludeId = null) {
-    // Usamos la función RPC overlapping o una consulta directa.
     // Aprovechamos el CONSTRAINT de exclusión en Supabase, pero también
     // verificamos desde la aplicación para dar mensajes de error claros.
     let query = supabase
@@ -309,6 +308,37 @@ class AppointmentService {
     }
   }
 
+  /**
+   * Verifica si un usuario es dueño o empleado activo de un negocio.
+   *
+   * @param {string} userId
+   * @param {string} businessId
+   * @returns {Promise<boolean>}
+   */
+  async checkIsStaff(userId, businessId) {
+    if (!businessId) return false;
+
+    // Verificar si es el owner
+    const { data: business } = await supabase
+      .from('businesses')
+      .select('owner_id')
+      .eq('id', businessId)
+      .single();
+
+    if (business?.owner_id === userId) return true;
+
+    // Verificar si es empleado activo
+    const { data: employee } = await supabase
+      .from('employees')
+      .select('id')
+      .eq('business_id', businessId)
+      .eq('profile_id', userId)
+      .eq('is_active', true)
+      .single();
+
+    return !!employee;
+  }
+
   // ────────────────────────────────────────────────────────────────────────────
   // MÉTODOS PÚBLICOS
   // ────────────────────────────────────────────────────────────────────────────
@@ -318,11 +348,9 @@ class AppointmentService {
    *
    * @param {object}      payload    - Datos validados por Zod
    * @param {string|null} clientId   - UUID del usuario autenticado (null si es anónimo)
-   * @param {object} [authenticatedClient] - Cliente Supabase autenticado con JWT del usuario (para RLS)
    * @returns {Promise<object>}       Cita creada
    */
-  async create(payload, clientId, authenticatedClient = null) {
-    const client = authenticatedClient ?? supabase;
+  async create(payload, clientId) {
     const {
       business_id,
       service_id,
@@ -344,7 +372,7 @@ class AppointmentService {
     const service = await this.#assertServiceActive(service_id, business_id);
 
     // ── Regla 4: Empleado activo ──────────────────────────────────────────────
-    const employee = await this.#assertEmployeeActive(employee_id, business_id);
+    await this.#assertEmployeeActive(employee_id, business_id);
 
     // ── Regla 5: Calcular end_time ────────────────────────────────────────────
     const end_time = this.#calculateEndTime(start_time, service.duration_minutes);
@@ -356,7 +384,7 @@ class AppointmentService {
     await this.#assertNoOverlap(employee_id, start_time, end_time);
 
     // ── Regla 9: Insertar con aislamiento multi-tenant ────────────────────────
-    const { data: appointment, error } = await client
+    const { data: appointment, error } = await supabase
       .from('appointments')
       .insert({
         business_id,
@@ -512,11 +540,9 @@ class AppointmentService {
    * @param {string} businessId    - UUID del negocio (contexto multi-tenant)
    * @param {string} newStatus     - Nuevo estado
    * @param {string} requesterId   - UUID del usuario que realiza la acción
-   * @param {object} [authenticatedClient] - Cliente Supabase autenticado con JWT del usuario (para RLS)
    * @returns {Promise<object>}     Cita actualizada
    */
-  async updateStatus(appointmentId, businessId, newStatus, requesterId, authenticatedClient = null) {
-    const client = authenticatedClient ?? supabase;
+  async updateStatus(appointmentId, businessId, newStatus, requesterId) {
     // ── Regla 9: Buscar la cita dentro del tenant ─────────────────────────────
     const { data: appointment, error: fetchError } = await supabase
       .from('appointments')
@@ -541,7 +567,7 @@ class AppointmentService {
     const business = await this.#assertBusinessActive(businessId);
 
     // Actualizar estado
-    const { data: updated, error } = await client
+    const { data: updated, error } = await supabase
       .from('appointments')
       .update({ status: newStatus })
       .eq('id', appointmentId)
@@ -575,11 +601,9 @@ class AppointmentService {
    * @param {string}  businessId    - UUID del negocio (contexto multi-tenant)
    * @param {string}  requesterId   - UUID del usuario autenticado
    * @param {boolean} isStaff       - true si es dueño o empleado del negocio
-   * @param {object} [authenticatedClient] - Cliente Supabase autenticado con JWT del usuario (para RLS)
    * @returns {Promise<object>}      Cita cancelada
    */
-  async cancel(appointmentId, businessId, requesterId, isStaff = false, authenticatedClient = null) {
-    const client = authenticatedClient ?? supabase;
+  async cancel(appointmentId, businessId, requesterId, isStaff = false) {
     // ── Regla 9: Buscar dentro del tenant ────────────────────────────────────
     const { data: appointment, error: fetchError } = await supabase
       .from('appointments')
@@ -609,7 +633,7 @@ class AppointmentService {
       throw ApiError.badRequest('No se puede cancelar una cita que ya ha comenzado o pasado.');
     }
 
-    const { data: cancelled, error } = await client
+    const { data: cancelled, error } = await supabase
       .from('appointments')
       .update({ status: 'cancelled' })
       .eq('id', appointmentId)

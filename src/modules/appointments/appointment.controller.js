@@ -1,7 +1,5 @@
 import appointmentService from './appointment.service.js';
 import { sendSuccess } from '../../utils/apiResponse.js';
-import supabase from '../../config/supabase.js';
-import { createAuthenticatedClient } from '../../config/supabase.js';
 
 /**
  * AppointmentController – Módulo Appointments.
@@ -25,9 +23,7 @@ class AppointmentController {
     try {
       // El usuario puede ser autenticado (req.user) o anónimo (null)
       const clientId = req.user?.id ?? null;
-      const authenticatedClient = req.token ? createAuthenticatedClient(req.token) : null;
-
-      const appointment = await appointmentService.create(req.body, clientId, authenticatedClient);
+      const appointment = await appointmentService.create(req.body, clientId);
 
       return sendSuccess(res, 'Cita agendada exitosamente.', appointment, 201);
     } catch (error) {
@@ -108,14 +104,11 @@ class AppointmentController {
       const { id: appointmentId } = req.params;
       const { businessId } = req.query;
       const { status } = req.body;
-      const authenticatedClient = createAuthenticatedClient(req.token);
-
       const updated = await appointmentService.updateStatus(
         appointmentId,
         businessId,
         status,
-        req.user.id,
-        authenticatedClient
+        req.user.id
       );
 
       return sendSuccess(res, `Estado de la cita actualizado a "${status}".`, updated);
@@ -144,56 +137,21 @@ class AppointmentController {
       const { id: appointmentId } = req.params;
       const { businessId } = req.query;
       const requesterId = req.user.id;
-      const authenticatedClient = createAuthenticatedClient(req.token);
 
-      // Determinar si el solicitante es staff del negocio
-      const isStaff = await this.#checkIsStaff(requesterId, businessId);
+      // Determinar si el solicitante es staff del negocio (delegado al servicio)
+      const isStaff = await appointmentService.checkIsStaff(requesterId, businessId);
 
       const cancelled = await appointmentService.cancel(
         appointmentId,
         businessId,
         requesterId,
-        isStaff,
-        authenticatedClient
+        isStaff
       );
 
       return sendSuccess(res, 'Cita cancelada correctamente.', cancelled);
     } catch (error) {
       next(error);
     }
-  };
-
-  /**
-   * Helper privado: verifica si el usuario es dueño o empleado activo del negocio.
-   * Encapsulado aquí para no duplicar lógica con requireRole middleware.
-   *
-   * @private
-   * @param {string} userId
-   * @param {string} businessId
-   * @returns {Promise<boolean>}
-   */
-  #checkIsStaff = async (userId, businessId) => {
-    if (!businessId) return false;
-
-    // Verificar si es el owner
-    const { data: business } = await supabase
-      .from('businesses')
-      .select('owner_id')
-      .eq('id', businessId)
-      .single();
-
-    if (business?.owner_id === userId) return true;
-
-    // Verificar si es empleado activo
-    const { data: employee } = await supabase
-      .from('employees')
-      .select('id')
-      .eq('business_id', businessId)
-      .eq('profile_id', userId)
-      .eq('is_active', true)
-      .single();
-
-    return !!employee;
   };
 }
 

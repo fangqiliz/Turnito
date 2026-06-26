@@ -7,6 +7,7 @@ import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import Textarea from '../../components/ui/Textarea'
 import ErrorModal from '../../components/ui/ErrorModal'
+import BusinessLogoUpload from '../../components/ui/BusinessLogoUpload'
 import { useErrorModal } from '../../hooks/useErrorModal'
 import toast from 'react-hot-toast'
 import styles from './DashboardPages.module.css'
@@ -19,15 +20,6 @@ const INITIAL_FORM = {
   logo_url: '',
 }
 
-function isValidUrl(string) {
-  try {
-    const url = new URL(string)
-    return url.protocol === 'http:' || url.protocol === 'https:'
-  } catch {
-    return false
-  }
-}
-
 export default function CreateBusinessPage() {
   const navigate = useNavigate()
   const { refreshBusinessData, switchBusiness } = useBusiness()
@@ -38,9 +30,18 @@ export default function CreateBusinessPage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target
-    setForm(prev => ({ ...prev, [name]: value }))
-    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }))
+    setForm((prev) => ({ ...prev, [name]: value }))
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }))
     if (errorMessage) closeError()
+  }
+
+  /**
+   * Cuando BusinessLogoUpload sube exitosamente, actualiza el form
+   * con la URL resultante (ya validada y almacenada en Supabase Storage).
+   */
+  const handleLogoSuccess = (url) => {
+    setForm((prev) => ({ ...prev, logo_url: url }))
+    if (errors.logo_url) setErrors((prev) => ({ ...prev, logo_url: '' }))
   }
 
   const validate = () => {
@@ -50,9 +51,6 @@ export default function CreateBusinessPage() {
     if (!form.description.trim()) errs.description = 'La descripción es requerida'
     if (!form.phone.trim()) errs.phone = 'El teléfono es requerido'
     if (!form.address.trim()) errs.address = 'La dirección es requerida'
-    if (form.logo_url.trim() && !isValidUrl(form.logo_url.trim())) {
-      errs.logo_url = 'Ingresa una URL válida (http:// o https://)'
-    }
     return errs
   }
 
@@ -72,8 +70,8 @@ export default function CreateBusinessPage() {
       phone: form.phone.trim(),
       address: form.address.trim(),
     }
-    if (form.logo_url.trim()) {
-      payload.logo_url = form.logo_url.trim()
+    if (form.logo_url) {
+      payload.logo_url = form.logo_url
     }
 
     try {
@@ -99,8 +97,6 @@ export default function CreateBusinessPage() {
       setLoading(false)
     }
   }
-
-  const showLogoPreview = form.logo_url.trim() && isValidUrl(form.logo_url.trim())
 
   return (
     <div>
@@ -159,27 +155,12 @@ export default function CreateBusinessPage() {
             />
           </div>
 
-          <div>
-            <Input
-              label="URL del Logo"
-              name="logo_url"
-              value={form.logo_url}
-              onChange={handleChange}
-              placeholder="https://ejemplo.com/logo.png"
-              error={errors.logo_url}
-            />
-            {showLogoPreview && (
-              <div className={styles.logoPreview}>
-                <span className={styles.logoPreviewLabel}>Vista previa</span>
-                <img
-                  src={form.logo_url.trim()}
-                  alt="Vista previa del logo"
-                  className={styles.logoPreviewImage}
-                  onError={(e) => { e.target.style.display = 'none' }}
-                />
-              </div>
-            )}
-          </div>
+          {/* Logo con subida directa al backend */}
+          <BusinessLogoUpload
+            currentUrl={form.logo_url}
+            onSuccess={handleLogoSuccess}
+            disabled={loading}
+          />
 
           <div className={styles.formActions}>
             <Button

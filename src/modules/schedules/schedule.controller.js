@@ -1,6 +1,5 @@
 import scheduleService from './schedule.service.js';
 import { sendSuccess } from '../../utils/apiResponse.js';
-import { createAuthenticatedClient } from '../../config/supabase.js';
 
 /**
  * Controlador del módulo Schedules.
@@ -21,8 +20,7 @@ class ScheduleController {
    */
   create = async (req, res, next) => {
     try {
-      const authenticatedClient = createAuthenticatedClient(req.token);
-      const schedule = await scheduleService.create(req.body, req.user.id, authenticatedClient);
+      const schedule = await scheduleService.create(req.body, req.user.id);
 
       return sendSuccess(res, 'Horario creado correctamente.', schedule, 201);
     } catch (error) {
@@ -62,14 +60,12 @@ class ScheduleController {
     try {
       const { id: scheduleId } = req.params;
       const { businessId } = req.query;
-      const authenticatedClient = createAuthenticatedClient(req.token);
 
       const updated = await scheduleService.update(
         scheduleId,
         businessId,
         req.body,
-        req.user.id,
-        authenticatedClient
+        req.user.id
       );
 
       return sendSuccess(res, 'Horario actualizado correctamente.', updated);
@@ -89,9 +85,8 @@ class ScheduleController {
     try {
       const { id: scheduleId } = req.params;
       const { businessId } = req.query;
-      const authenticatedClient = createAuthenticatedClient(req.token);
 
-      await scheduleService.remove(scheduleId, businessId, req.user.id, authenticatedClient);
+      await scheduleService.remove(scheduleId, businessId, req.user.id);
 
       return sendSuccess(res, 'Horario eliminado correctamente.', null);
     } catch (error) {

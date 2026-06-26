@@ -64,6 +64,8 @@ tags:
     description: 🕒 Gestión de horarios laborales de empleados
   - name: Appointments
     description: 📅 Módulo core – Gestión de citas y turnos
+  - name: Uploads
+    description: 📤 Gestión de subida de archivos (Avatares y Logos)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # SEGURIDAD
@@ -2476,3 +2478,125 @@ paths:
                 message: "No tienes permisos para cancelar esta cita"
         '404':
           $ref: '#/components/responses/NotFound'
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 📤 UPLOADS
+  # ─────────────────────────────────────────────────────────────────────────────
+  /upload/avatar:
+    post:
+      tags: [Uploads]
+      summary: Subir imagen de perfil del usuario autenticado
+      description: |
+        Sube un archivo de imagen para actualizar el avatar del usuario autenticado.
+        El archivo se almacena en Supabase Storage dentro del bucket `avatars` bajo la ruta `avatars/{userId}/archivo`.
+        
+        **Acceso:** Privado – Requiere Bearer Token
+      operationId: uploadAvatar
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Archivo de imagen a subir (JPEG, PNG o WebP, máx. 5MB)
+              required:
+                - file
+      responses:
+        '201':
+          description: Imagen subida correctamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          url:
+                            type: string
+                            format: uri
+                            example: "https://bczslyugprpyiohhthkq.supabase.co/storage/v1/object/public/avatars/550e8400-e29b-41d4-a716-446655440000/1687498200000-abcd.jpg"
+              example:
+                success: true
+                message: "Avatar de usuario subido correctamente."
+                data:
+                  url: "https://bczslyugprpyiohhthkq.supabase.co/storage/v1/object/public/avatars/550e8400-e29b-41d4-a716-446655440000/1687498200000-abcd.jpg"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /upload/logo:
+    post:
+      tags: [Uploads]
+      summary: Subir logo de un negocio
+      description: |
+        Sube un archivo de imagen para el logo de un negocio específico.
+        El usuario autenticado debe tener permisos en el negocio (propietario o rol administrativo).
+        El archivo se almacena en Supabase Storage dentro del bucket `business-logos` bajo la ruta `business-logos/{businessId}/archivo`.
+        
+        **Acceso:** Privado – Requiere Bearer Token + Permisos en el negocio
+      operationId: uploadLogo
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Archivo de imagen a subir (JPEG, PNG o WebP, máx. 5MB)
+                businessId:
+                  type: string
+                  format: uuid
+                  description: UUID del negocio al que pertenece el logo
+              required:
+                - file
+                - businessId
+      responses:
+        '201':
+          description: Logo subido correctamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          url:
+                            type: string
+                            format: uri
+                            example: "https://bczslyugprpyiohhthkq.supabase.co/storage/v1/object/public/business-logos/a1b2c3d4-e5f6-7890-abcd-ef1234567890/1687498200000-xyz.png"
+              example:
+                success: true
+                message: "Logo del negocio subido correctamente."
+                data:
+                  url: "https://bczslyugprpyiohhthkq.supabase.co/storage/v1/object/public/business-logos/a1b2c3d4-e5f6-7890-abcd-ef1234567890/1687498200000-xyz.png"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+

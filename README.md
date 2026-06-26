@@ -69,7 +69,7 @@ Abre el archivo `.env` y rellena las variables con los datos correspondientes.
 | `PORT` | `Number` | Puerto donde escuchará la API. | `3000` |
 | `NODE_ENV` | `Enum` | Entorno de ejecución (`development`, `production`, `test`). | `development` |
 | `SUPABASE_URL` | `URL` | Endpoint de tu API de Supabase. | `https://x.supabase.co` |
-| `SUPABASE_ANON_KEY` | `String` | API Key pública/anon de tu proyecto Supabase. | `eyJhbGciOi...` |
+| `SUPABASE_SERVICE_ROLE_KEY` | `String` | API Key privada service role para uso exclusivo del backend. | `eyJhbGciOi...` |
 | `CORS_ORIGIN` | `String` | Orígenes permitidos para CORS (separados por comas o `*`). | `http://localhost:5173` |
 
 ### 3. Ejecutar en modo desarrollo

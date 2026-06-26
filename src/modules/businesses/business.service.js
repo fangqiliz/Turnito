@@ -18,14 +18,10 @@ class BusinessService {
    * @param {string} [payload.address]
    * @param {string} [payload.logo_url]
    * @param {string} ownerId - UUID del usuario propietario (auth.users)
-   * @param {object} [authenticatedClient] - Cliente Supabase autenticado con JWT del usuario (para RLS)
    * @returns {Promise<object>} Negocio creado
    */
-  async create(payload, ownerId, authenticatedClient = null) {
+  async create(payload, ownerId) {
     const { name, slug, description, phone, address, logo_url } = payload;
-    
-    // Usar el cliente autenticado para garantizar que RLS funcione correctamente
-    const client = authenticatedClient ?? supabase;
 
     // Verificar unicidad del slug antes de intentar insertar
     const { data: existing } = await supabase
@@ -40,7 +36,7 @@ class BusinessService {
       );
     }
 
-    const { data: business, error } = await client
+    const { data: business, error } = await supabase
       .from('businesses')
       .insert({
         owner_id: ownerId,
@@ -94,7 +90,7 @@ class BusinessService {
    * @returns {Promise<object>} Negocio encontrado
    */
   async findById(businessId) {
-    const { data: business, error } = await supabase
+    const { data, error } = await supabase
       .from('businesses')
       .select(`
         id,
@@ -115,13 +111,17 @@ class BusinessService {
         )
       `)
       .eq('id', businessId)
-      .single();
+      .maybeSingle();
 
-    if (error || !business) {
+    if (error) {
+      throw ApiError.internal(`Error al obtener el negocio: ${error.message}`);
+    }
+
+    if (!data) {
       throw ApiError.notFound(`Negocio con id "${businessId}" no encontrado`);
     }
 
-    return business;
+    return data;
   }
 
   /**
@@ -132,12 +132,9 @@ class BusinessService {
    * @param {string}  businessId  - UUID del negocio a actualizar
    * @param {object}  payload     - Campos a actualizar
    * @param {string}  requesterId - UUID del usuario que hace la solicitud
-   * @param {object} [authenticatedClient] - Cliente Supabase autenticado con JWT del usuario (para RLS)
    * @returns {Promise<object>} Negocio actualizado
    */
-  async update(businessId, payload, requesterId, authenticatedClient = null) {
-    const client = authenticatedClient ?? supabase;
-    
+  async update(businessId, payload, requesterId) {
     // 1. Obtener el negocio para validar ownership
     const { data: business, error: fetchError } = await supabase
       .from('businesses')
@@ -173,7 +170,7 @@ class BusinessService {
     }
 
     // 4. Realizar la actualización
-    const { data: updated, error: updateError } = await client
+    const { data: updated, error: updateError } = await supabase
       .from('businesses')
       .update(payload)
       .eq('id', businessId)

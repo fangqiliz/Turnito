@@ -215,6 +215,13 @@ Authorization: Bearer {access_token}
 | `PUT` | `/appointments/{id}/status?businessId=` | Cambiar estado de cita | Owner / Staff |
 | `DELETE` | `/appointments/{id}?businessId=` | Cancelar cita | Autenticado |
 
+### 📤 Uploads
+
+| Método | Endpoint | Descripción | Acceso |
+|---|---|---|---|
+| `POST` | `/upload/avatar` | Subir imagen de perfil propia | Autenticado |
+| `POST` | `/upload/logo` | Subir logo de un negocio | Owner / Admin / Manager |
+
 ---
 
 ## Ejemplos de Llamadas HTTP
@@ -580,6 +587,68 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
   "data": {
     "id": "e5f6a7b8-c9d0-1234-efab-567890123456",
     "status": "cancelled"
+  }
+}
+```
+
+---
+
+### 📤 Subir imagen de perfil (Avatar)
+
+```http
+POST /upload/avatar HTTP/1.1
+Host: localhost:3000
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="mi-foto.png"
+Content-Type: image/png
+
+[Contenido binario del archivo]
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+```
+
+**Respuesta (201):**
+```json
+{
+  "success": true,
+  "message": "Avatar de usuario subido correctamente.",
+  "data": {
+    "url": "https://bczslyugprpyiohhthkq.supabase.co/storage/v1/object/public/avatars/550e8400-e29b-41d4-a716-446655440000/1687498200000-abcd.png"
+  }
+}
+```
+
+---
+
+### 📤 Subir logo de un negocio
+
+```http
+POST /upload/logo HTTP/1.1
+Host: localhost:3000
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="businessId"
+
+a1b2c3d4-e5f6-7890-abcd-ef1234567890
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="logo-negocio.jpg"
+Content-Type: image/jpeg
+
+[Contenido binario del archivo]
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+```
+
+**Respuesta (201):**
+```json
+{
+  "success": true,
+  "message": "Logo del negocio subido correctamente.",
+  "data": {
+    "url": "https://bczslyugprpyiohhthkq.supabase.co/storage/v1/object/public/business-logos/a1b2c3d4-e5f6-7890-abcd-ef1234567890/1687498200000-xyz.jpg"
   }
 }
 ```

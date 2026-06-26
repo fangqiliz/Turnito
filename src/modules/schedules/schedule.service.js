@@ -173,11 +173,9 @@ class ScheduleService {
    *
    * @param {object} payload     - Datos validados por Zod
    * @param {string} requesterId - UUID del usuario autenticado
-   * @param {object} [authenticatedClient] - Cliente Supabase autenticado con JWT del usuario (para RLS)
    * @returns {Promise<object>}  Horario creado
    */
-  async create(payload, requesterId, authenticatedClient = null) {
-    const client = authenticatedClient ?? supabase;
+  async create(payload, requesterId) {
     const { business_id, employee_id, day_of_week, start_time, end_time, is_active } = payload;
 
     // 1. Validar negocio + ownership
@@ -191,7 +189,7 @@ class ScheduleService {
     await this.#assertNoOverlap(employee_id, day_of_week, start_time, end_time);
 
     // 4. Insertar
-    const { data: schedule, error } = await client
+    const { data: schedule, error } = await supabase
       .from('schedules')
       .insert({
         business_id,
@@ -267,11 +265,9 @@ class ScheduleService {
    * @param {string} businessId  - UUID del negocio (tenant)
    * @param {object} payload     - Campos a actualizar
    * @param {string} requesterId - UUID del usuario autenticado
-   * @param {object} [authenticatedClient] - Cliente Supabase autenticado con JWT del usuario (para RLS)
    * @returns {Promise<object>}  Horario actualizado
    */
-  async update(scheduleId, businessId, payload, requesterId, authenticatedClient = null) {
-    const client = authenticatedClient ?? supabase;
+  async update(scheduleId, businessId, payload, requesterId) {
     // 1. Validar negocio + ownership
     const business = await this.#assertBusinessExists(businessId);
     this.#assertIsOwner(business, requesterId);
@@ -312,7 +308,7 @@ class ScheduleService {
     }
 
     // 4. Actualizar
-    const { data: updated, error } = await client
+    const { data: updated, error } = await supabase
       .from('schedules')
       .update(payload)
       .eq('id', scheduleId)
@@ -339,11 +335,9 @@ class ScheduleService {
    * @param {string} scheduleId  - UUID del horario
    * @param {string} businessId  - UUID del negocio (tenant)
    * @param {string} requesterId - UUID del usuario autenticado
-   * @param {object} [authenticatedClient] - Cliente Supabase autenticado con JWT del usuario (para RLS)
    * @returns {Promise<true>}
    */
-  async remove(scheduleId, businessId, requesterId, authenticatedClient = null) {
-    const client = authenticatedClient ?? supabase;
+  async remove(scheduleId, businessId, requesterId) {
     // 1. Validar negocio + ownership
     const business = await this.#assertBusinessExists(businessId);
     this.#assertIsOwner(business, requesterId);
@@ -352,7 +346,7 @@ class ScheduleService {
     await this.#assertScheduleExists(scheduleId, businessId);
 
     // 3. Eliminar
-    const { error } = await client
+    const { error } = await supabase
       .from('schedules')
       .delete()
       .eq('id', scheduleId);

@@ -10,13 +10,10 @@ class UserService {
    * Esto proporciona un contexto completo de multi-tenant al usuario autenticado.
    * 
    * @param {string} userId - ID del usuario (UUID de auth.users)
-   * @param {object} [authenticatedClient] - Cliente Supabase autenticado con JWT del usuario (para RLS)
    */
-  async getProfile(userId, authenticatedClient = null) {
-    const client = authenticatedClient ?? supabase;
-    
+  async getProfile(userId) {
     // 1. Obtener los datos básicos del perfil
-    const { data: profile, error: profileError } = await client
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
@@ -27,13 +24,13 @@ class UserService {
     }
 
     // 2. Obtener los negocios de los cuales el usuario es dueño
-    const { data: ownedBusinesses, error: ownedError } = await client
+    const { data: ownedBusinesses, error: ownedError } = await supabase
       .from('businesses')
       .select('id, name, slug, description, phone, address, logo_url, owner_id, created_at, updated_at')
       .eq('owner_id', userId);
 
     // 3. Obtener los negocios en los que trabaja como empleado
-    const { data: employeeRoles, error: employeeError } = await client
+    const { data: employeeRoles, error: employeeError } = await supabase
       .from('employees')
       .select(`
         id,
@@ -69,10 +66,8 @@ class UserService {
    * @param {object} updatePayload - Datos a actualizar
    * @param {string} [updatePayload.fullName]
    * @param {string} [updatePayload.avatarUrl]
-   * @param {object} [authenticatedClient] - Cliente Supabase autenticado con JWT del usuario (para RLS)
    */
-  async updateProfile(userId, updatePayload, authenticatedClient = null) {
-    const client = authenticatedClient ?? supabase;
+  async updateProfile(userId, updatePayload) {
     const updateData = {};
     
     if (updatePayload.fullName !== undefined) {
@@ -86,7 +81,7 @@ class UserService {
       throw ApiError.badRequest('No se proporcionaron datos válidos para actualizar');
     }
 
-    const { data: updatedProfile, error } = await client
+    const { data: updatedProfile, error } = await supabase
       .from('profiles')
       .update(updateData)
       .eq('id', userId)
