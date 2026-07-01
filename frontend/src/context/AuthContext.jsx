@@ -67,15 +67,37 @@ export function AuthProvider({ children }) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: {
-          full_name: fullName,
-          avatar_url: '',
-        },
-      },
+      options: { data: { full_name: fullName, avatar_url: '' } },
     })
     if (error) throw error
     return data
+  }
+
+  // Registro como negocio: llama al backend que crea business + employee(owner)
+  // Después hidrata la sesión de Supabase con los tokens devueltos.
+  const registerBusiness = async (email, password, fullName, businessName) => {
+    const response = await api.post('/auth/register', {
+      accountType: 'business',
+      email,
+      password,
+      fullName,
+      businessName,
+    })
+
+    if (!response.success) {
+      throw new Error(response.message || 'Error al registrar el negocio')
+    }
+
+    const { session, requiresEmailConfirmation } = response.data
+
+    if (session?.access_token) {
+      await supabase.auth.setSession({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      })
+    }
+
+    return { ...response.data, requiresEmailConfirmation }
   }
 
   const logout = async () => {
@@ -102,6 +124,7 @@ export function AuthProvider({ children }) {
     isAuthenticated: !!session,
     login,
     register,
+    registerBusiness,
     logout,
     updateProfile,
     refreshProfile: fetchProfile,

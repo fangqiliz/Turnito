@@ -72,62 +72,92 @@ class EmployeeService {
   /**
    * Registra un nuevo empleado en un negocio.
    *
-   * Reglas:
-   *  1. El negocio debe existir.
-   *  2. El solicitante debe ser el propietario del negocio.
-   *  3. Si se proporciona un profile_id, no puede existir ya en ese negocio
-   *     (restricción UNIQUE business_id + profile_id).
+   * Flujo:
+   *  1. Validar negocio y ownership.
+   *  2. Crear usuario en Supabase Auth (email + password).
+   *  3. Asegurar que el profile exista (trigger automático o upsert manual).
+   *  4. Insertar en employees con profile_id del usuario creado.
+   *  5. Si el insert falla, eliminar el usuario de Auth para evitar huérfanos.
    *
-   * @param {object} payload   - Datos validados del empleado
+   * La contraseña NO se almacena en la tabla employees.
+   *
+   * @param {object} payload     - Datos validados del empleado (incluye password)
    * @param {string} requesterId - UUID del usuario autenticado
    */
   async create(payload, requesterId) {
-    const { business_id, profile_id } = payload;
+    const { business_id, password, ...employeeData } = payload;
 
     // 1. Validar existencia del negocio y ownership
     const business = await this.#assertBusinessExists(business_id);
     this.#assertIsOwner(business, requesterId);
 
-    // 2. Evitar duplicado: mismo profile_id en el mismo negocio
-    if (profile_id) {
-      const { data: duplicate } = await supabase
-        .from('employees')
-        .select('id')
-        .eq('business_id', business_id)
-        .eq('profile_id', profile_id)
-        .maybeSingle();
+    // 2. Crear usuario en Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email:          employeeData.email,
+      password,
+      email_confirm:  true, // confirmar email sin necesidad de verificación
+      user_metadata:  { full_name: employeeData.full_name },
+    });
 
-      if (duplicate) {
-        throw ApiError.badRequest(
-          'Este usuario ya está registrado como empleado en el negocio.'
-        );
+    if (authError) {
+      const msg = authError.message ?? '';
+      if (msg.toLowerCase().includes('already registered') || authError.code === 'email_exists') {
+        throw ApiError.badRequest('Ya existe una cuenta registrada con ese email.');
       }
+      throw ApiError.internal(`Error al crear la cuenta del empleado: ${msg}`);
     }
 
-    // 3. Insertar
-    const { data: employee, error } = await supabase
+    const newUserId = authData.user.id;
+
+    // 3. Garantizar que el profile exista (puede crearse via trigger de DB)
+    await supabase.from('profiles').upsert(
+      {
+        id:         newUserId,
+        full_name:  employeeData.full_name,
+        email:      employeeData.email,
+        avatar_url: '',
+      },
+      { onConflict: 'id', ignoreDuplicates: true }
+    );
+
+    // 4. Evitar duplicado: mismo profile en el mismo negocio
+    const { data: duplicate } = await supabase
+      .from('employees')
+      .select('id')
+      .eq('business_id', business_id)
+      .eq('profile_id', newUserId)
+      .maybeSingle();
+
+    if (duplicate) {
+      // El usuario ya era empleado; eliminamos el Auth user que acabamos de crear
+      await supabase.auth.admin.deleteUser(newUserId);
+      throw ApiError.badRequest('Este usuario ya está registrado como empleado en el negocio.');
+    }
+
+    // 5. Insertar employee (sin password)
+    const { data: employee, error: insertError } = await supabase
       .from('employees')
       .insert({
         business_id,
-        profile_id: profile_id ?? null,
-        full_name: payload.full_name,
-        email:     payload.email ?? null,
-        phone:     payload.phone ?? null,
-        specialty: payload.specialty ?? null,
-        role:      payload.role ?? 'staff',
-        is_active: payload.is_active ?? true,
+        profile_id: newUserId,
+        full_name:  employeeData.full_name,
+        email:      employeeData.email,
+        phone:      employeeData.phone  ?? null,
+        specialty:  employeeData.specialty ?? null,
+        role:       employeeData.role   ?? 'staff',
+        is_active:  employeeData.is_active ?? true,
       })
       .select()
       .single();
 
-    if (error) {
-      // Captura de violación de unicidad a nivel DB (condición de carrera)
-      if (error.code === '23505') {
-        throw ApiError.badRequest(
-          'Este usuario ya está registrado como empleado en el negocio.'
-        );
+    if (insertError) {
+      // Rollback: eliminar el usuario de Auth para no dejar huérfanos
+      await supabase.auth.admin.deleteUser(newUserId);
+
+      if (insertError.code === '23505') {
+        throw ApiError.badRequest('Este usuario ya está registrado como empleado en el negocio.');
       }
-      throw ApiError.internal(`Error al crear el empleado: ${error.message}`);
+      throw ApiError.internal(`Error al crear el empleado: ${insertError.message}`);
     }
 
     return employee;

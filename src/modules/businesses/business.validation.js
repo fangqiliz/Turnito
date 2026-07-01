@@ -52,8 +52,10 @@ export const createBusinessSchema = z.object({
   logo_url: z
     .string()
     .url('La URL del logo no es válida')
-    .optional()
-    .nullable(),
+    .or(z.literal(''))
+    .transform((v) => v === '' ? null : v)
+    .nullable()
+    .optional(),
 
   /**
    * El slug es opcional en la petición: si no se proporciona se deriva del `name`.
@@ -109,6 +111,8 @@ export const updateBusinessSchema = z
     logo_url: z
       .string()
       .url('La URL del logo no es válida')
+      .or(z.literal(''))
+      .transform((v) => v === '' ? null : v)
       .nullable()
       .optional(),
 

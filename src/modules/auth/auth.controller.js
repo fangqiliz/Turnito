@@ -10,16 +10,18 @@ class AuthController {
    */
   register = async (req, res, next) => {
     try {
-      const { email, password, fullName, avatarUrl } = req.body;
-      
-      const result = await authService.register(email, password, fullName, avatarUrl);
-      
-      return sendSuccess(
-        res,
-        'Usuario registrado correctamente.',
-        result,
-        201
+      const { email, password, fullName, avatarUrl, accountType, businessName } = req.body;
+
+      const result = await authService.register(
+        email,
+        password,
+        fullName,
+        avatarUrl,
+        accountType,
+        businessName,
       );
+
+      return sendSuccess(res, 'Usuario registrado correctamente.', result, 201);
     } catch (error) {
       next(error);
     }

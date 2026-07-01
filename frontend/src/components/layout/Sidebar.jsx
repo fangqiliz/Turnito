@@ -92,7 +92,7 @@ export default function Sidebar({ collapsed, onToggle }) {
 
       <div className={styles.footer}>
         <NavLink
-          to="/my-appointments"
+          to="/client/appointments"
           className={({ isActive }) =>
             `${styles.navItem} ${isActive ? styles.active : ''}`
           }

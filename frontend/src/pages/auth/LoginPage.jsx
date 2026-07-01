@@ -12,7 +12,7 @@ export default function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const from = location.state?.from?.pathname || '/dashboard'
+  const from = location.state?.from?.pathname || '/'
   const { errorMessage, showError, closeError, duration } = useErrorModal()
 
   const [values, setValues] = useState({ email: '', password: '' })

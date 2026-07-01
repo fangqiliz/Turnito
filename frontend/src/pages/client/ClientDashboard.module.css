@@ -1,0 +1,32 @@
+.bookCard {
+  cursor: pointer;
+  border: 2px dashed var(--color-border);
+  transition: all var(--transition-base);
+}
+
+.bookCard:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-subtle);
+}
+
+.bookLink {
+  color: var(--color-accent-light);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+}
+
+.bookLink:hover {
+  text-decoration: underline;
+}
+
+.viewAllLink {
+  font-size: var(--font-size-sm);
+  color: var(--color-accent-light);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+}
+
+.viewAllLink:hover {
+  text-decoration: underline;
+}

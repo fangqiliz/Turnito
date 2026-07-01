@@ -7,19 +7,13 @@ import { z } from 'zod';
 /**
  * Esquema para crear un empleado.
  * El `business_id` identifica el tenant al que pertenece el empleado.
- * El `profile_id` es opcional: puede asociarse después de que el usuario
- * se registre en la app. El campo `specialty` es opcional.
+ * El email y la contraseña son requeridos para crear la cuenta en Supabase Auth.
+ * La contraseña NO se persiste en la tabla employees.
  */
 export const createEmployeeSchema = z.object({
   business_id: z
     .string({ required_error: 'El business_id es requerido' })
     .uuid('El business_id debe ser un UUID válido'),
-
-  profile_id: z
-    .string()
-    .uuid('El profile_id debe ser un UUID válido')
-    .optional()
-    .nullable(),
 
   full_name: z
     .string({ required_error: 'El nombre completo es requerido' })
@@ -28,11 +22,13 @@ export const createEmployeeSchema = z.object({
     .trim(),
 
   email: z
-    .string()
+    .string({ required_error: 'El email es requerido' })
     .email('El formato del correo electrónico es inválido')
-    .trim()
-    .optional()
-    .nullable(),
+    .trim(),
+
+  password: z
+    .string({ required_error: 'La contraseña es requerida' })
+    .min(8, 'La contraseña debe tener al menos 8 caracteres'),
 
   phone: z
     .string()

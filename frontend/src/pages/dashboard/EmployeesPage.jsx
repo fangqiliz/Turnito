@@ -18,7 +18,7 @@ export default function EmployeesPage() {
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
   const [formLoading, setFormLoading] = useState(false)
-  const [form, setForm] = useState({ full_name: '', email: '', phone: '', specialty: '', role: 'staff' })
+  const [form, setForm] = useState({ full_name: '', email: '', phone: '', specialty: '', role: 'staff', password: '', confirmPassword: '' })
 
   const fetchEmployees = useCallback(async () => {
     if (!activeBusiness) return
@@ -34,26 +34,36 @@ export default function EmployeesPage() {
 
   const openCreate = () => {
     setEditing(null)
-    setForm({ full_name: '', email: '', phone: '', specialty: '', role: 'staff' })
+    setForm({ full_name: '', email: '', phone: '', specialty: '', role: 'staff', password: '', confirmPassword: '' })
     setShowModal(true)
   }
 
   const openEdit = (emp) => {
     setEditing(emp)
-    setForm({ full_name: emp.full_name, email: emp.email || '', phone: emp.phone || '', specialty: emp.specialty || '', role: emp.role })
+    setForm({ full_name: emp.full_name, email: emp.email || '', phone: emp.phone || '', specialty: emp.specialty || '', role: emp.role, password: '', confirmPassword: '' })
     setShowModal(true)
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.full_name.trim()) { toast.error('El nombre es requerido'); return }
+
+    if (!editing) {
+      if (!form.email.trim()) { toast.error('El email es requerido'); return }
+      if (!form.password) { toast.error('La contraseña es requerida'); return }
+      if (form.password.length < 8) { toast.error('La contraseña debe tener al menos 8 caracteres'); return }
+      if (form.password !== form.confirmPassword) { toast.error('Las contraseñas no coinciden'); return }
+    }
+
     setFormLoading(true)
     try {
       if (editing) {
-        await api.put(`/employees/${editing.id}?businessId=${activeBusiness.id}`, form)
+        const { password: _pw, confirmPassword: _cpw, ...editPayload } = form
+        await api.put(`/employees/${editing.id}?businessId=${activeBusiness.id}`, editPayload)
         toast.success('Empleado actualizado')
       } else {
-        await api.post('/employees', { ...form, business_id: activeBusiness.id })
+        const { confirmPassword: _cpw, ...createPayload } = form
+        await api.post('/employees', { ...createPayload, business_id: activeBusiness.id })
         toast.success('Empleado creado')
       }
       setShowModal(false)
@@ -112,7 +122,7 @@ export default function EmployeesPage() {
         footer={<><Button variant="secondary" onClick={() => setShowModal(false)}>Cancelar</Button><Button loading={formLoading} onClick={handleSubmit}>Guardar</Button></>}>
         <form onSubmit={handleSubmit} className={styles.formGrid} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
           <Input label="Nombre Completo" name="full_name" value={form.full_name} onChange={(e) => setForm(p => ({ ...p, full_name: e.target.value }))} required />
-          <Input label="Email" name="email" type="email" value={form.email} onChange={(e) => setForm(p => ({ ...p, email: e.target.value }))} />
+          <Input label={editing ? 'Email' : 'Email *'} name="email" type="email" value={form.email} onChange={(e) => setForm(p => ({ ...p, email: e.target.value }))} required={!editing} />
           <Input label="Teléfono" name="phone" value={form.phone} onChange={(e) => setForm(p => ({ ...p, phone: e.target.value }))} />
           <Input label="Especialidad" name="specialty" value={form.specialty} onChange={(e) => setForm(p => ({ ...p, specialty: e.target.value }))} placeholder="Ej: Corte, Coloración..." />
           <div>
@@ -124,6 +134,35 @@ export default function EmployeesPage() {
               <option value="admin">Admin</option>
             </select>
           </div>
+          {!editing && (
+            <>
+              <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 'var(--space-4)' }}>
+                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)', marginBottom: 'var(--space-3)' }}>
+                  Credenciales de acceso al sistema
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                  <Input
+                    label="Contraseña *"
+                    name="password"
+                    type="password"
+                    value={form.password}
+                    onChange={(e) => setForm(p => ({ ...p, password: e.target.value }))}
+                    placeholder="Mínimo 8 caracteres"
+                    required
+                  />
+                  <Input
+                    label="Confirmar contraseña *"
+                    name="confirmPassword"
+                    type="password"
+                    value={form.confirmPassword}
+                    onChange={(e) => setForm(p => ({ ...p, confirmPassword: e.target.value }))}
+                    placeholder="Repite la contraseña"
+                    required
+                  />
+                </div>
+              </div>
+            </>
+          )}
         </form>
       </Modal>
     </div>

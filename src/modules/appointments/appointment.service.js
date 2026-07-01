@@ -44,16 +44,12 @@ class AppointmentService {
   async #assertBusinessActive(businessId) {
     const { data: business, error } = await supabase
       .from('businesses')
-      .select('id, owner_id, name, is_active')
+      .select('id, owner_id, name')
       .eq('id', businessId)
       .single();
 
     if (error || !business) {
       throw ApiError.notFound(`El negocio con id "${businessId}" no existe.`);
-    }
-
-    if (business.is_active === false) {
-      throw ApiError.badRequest('El negocio no está activo en este momento.');
     }
 
     return business;
