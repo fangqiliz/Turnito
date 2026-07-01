@@ -39,7 +39,7 @@ class EmployeeService {
   async #assertEmployeeExists(employeeId, businessId) {
     const { data: employee, error } = await supabase
       .from('employees')
-      .select('id, business_id, profile_id, owner_id')
+      .select('id, business_id, profile_id')
       .eq('id', employeeId)
       .eq('business_id', businessId)
       .single();
