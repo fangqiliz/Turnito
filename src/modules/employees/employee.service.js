@@ -264,6 +264,45 @@ class EmployeeService {
   }
 
   /**
+   * Actualiza el teléfono del propio registro de empleado del usuario autenticado.
+   * A diferencia de `update()`, no requiere ownership del negocio: el requester
+   * solo puede modificar su propio registro (business_id + profile_id) y únicamente
+   * el campo `phone`.
+   *
+   * @param {string} profileId  - UUID del usuario autenticado (auth.users.id)
+   * @param {string} businessId - UUID del negocio en el que trabaja
+   * @param {string|null} phone - Nuevo teléfono
+   */
+  async updateOwnPhone(profileId, businessId, phone) {
+    const { data: employee, error } = await supabase
+      .from('employees')
+      .select('id, business_id, profile_id, is_active')
+      .eq('business_id', businessId)
+      .eq('profile_id', profileId)
+      .eq('is_active', true)
+      .single();
+
+    if (error || !employee) {
+      throw ApiError.notFound(
+        'No se encontró un registro de empleado activo para este usuario en este negocio.'
+      );
+    }
+
+    const { data: updated, error: updateError } = await supabase
+      .from('employees')
+      .update({ phone: phone ?? null })
+      .eq('id', employee.id)
+      .select()
+      .single();
+
+    if (updateError) {
+      throw ApiError.internal(`Error al actualizar el teléfono: ${updateError.message}`);
+    }
+
+    return updated;
+  }
+
+  /**
    * Elimina (soft-delete o hard-delete) un empleado del negocio.
    * Se realiza un hard-delete. Para soft-delete, cambiar a update is_active=false.
    *

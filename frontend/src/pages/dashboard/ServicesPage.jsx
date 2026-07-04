@@ -82,7 +82,11 @@ export default function ServicesPage() {
       await api.delete(`/services/${svc.id}?businessId=${activeBusiness.id}`)
       toast.success('Servicio eliminado')
       setShowDetails(false)
-      fetchServices()
+      // El backend hace soft-delete (is_active: false) para preservar la integridad
+      // referencial con citas existentes, por lo que el servicio seguiría apareciendo
+      // si se recargara la lista desde el backend. Se quita del estado local para
+      // reflejar la eliminación de inmediato en la UI.
+      setServices((prev) => prev.filter((s) => s.id !== svc.id))
     } catch (err) {
       toast.error(err.message || 'Error al eliminar')
     }

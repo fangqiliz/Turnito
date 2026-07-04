@@ -82,6 +82,29 @@ class EmployeeController {
   };
 
   /**
+   * PUT /employees/me
+   * Actualiza el teléfono del propio registro de empleado del usuario autenticado.
+   * El `businessId` se recibe en el body para identificar el registro dentro del tenant.
+   *
+   * @access Privado (Requiere Token) — solo modifica el propio registro
+   */
+  updateOwn = async (req, res, next) => {
+    try {
+      const { businessId, phone } = req.body;
+
+      const updated = await employeeService.updateOwnPhone(
+        req.user.id,
+        businessId,
+        phone
+      );
+
+      return sendSuccess(res, 'Teléfono actualizado correctamente.', updated);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
    * DELETE /employees/:id
    * Elimina un empleado del negocio.
    * El `businessId` se recibe como query param: ?businessId=<uuid>

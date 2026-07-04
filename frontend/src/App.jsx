@@ -39,6 +39,7 @@ import ClientDashboard    from './pages/client/ClientDashboard'
 import MyAppointmentsPage from './pages/client/MyAppointmentsPage'
 import ClientBusinessesPage from './pages/client/BusinessesPage'
 import BookingPage        from './pages/client/BookingPage'
+import UserProfilePage    from './pages/client/ProfilePage'
 
 import NotFoundPage from './pages/NotFoundPage'
 
@@ -97,7 +98,8 @@ export default function App() {
 
             {/* ── Employee portal (/employee) ────────────────────────────────── */}
             <Route element={<ProtectedEmployeeRoute><ClientLayout /></ProtectedEmployeeRoute>}>
-              <Route path="/employee" element={<EmployeeDashboard />} />
+              <Route path="/employee"         element={<EmployeeDashboard />} />
+              <Route path="/employee/profile" element={<UserProfilePage />} />
             </Route>
 
             {/* ── Client portal (/client) ────────────────────────────────────── */}
@@ -106,6 +108,7 @@ export default function App() {
               <Route path="/client/appointments"         element={<MyAppointmentsPage />} />
               <Route path="/client/businesses"           element={<ClientBusinessesPage />} />
               <Route path="/client/book/:businessSlug"   element={<BookingPage />} />
+              <Route path="/client/profile"              element={<UserProfilePage />} />
             </Route>
 
             {/* ── Backward-compat redirects ─────────────────────────────────── */}

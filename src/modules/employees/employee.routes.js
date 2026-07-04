@@ -4,6 +4,7 @@ import employeeController from './employee.controller.js';
 import {
   createEmployeeSchema,
   updateEmployeeSchema,
+  updateOwnEmployeeSchema,
   employeeIdParamSchema,
   businessIdParamSchema,
 } from './employee.validation.js';
@@ -83,6 +84,25 @@ router.get(
   requireAuth,
   validate({ params: businessIdParamSchema }),
   employeeController.getByBusiness
+);
+
+/**
+ * @route  PUT /employees/me
+ * @desc   Actualiza el teléfono del propio registro de empleado del usuario autenticado
+ * @access Privado (Requiere Token) — solo modifica el propio registro, no requiere ownership
+ *
+ * Body requerido:
+ *   businessId  UUID del negocio (identifica el registro dentro del tenant)
+ *   [phone]     string?
+ *
+ * Nota: debe declararse antes de PUT /:id para que Express no interprete
+ * "me" como un :id.
+ */
+router.put(
+  '/me',
+  requireAuth,
+  validate({ body: updateOwnEmployeeSchema }),
+  employeeController.updateOwn
 );
 
 /**

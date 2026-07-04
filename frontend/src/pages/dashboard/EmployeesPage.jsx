@@ -77,6 +77,8 @@ export default function EmployeesPage() {
     try {
       await api.delete(`/employees/${emp.id}?businessId=${activeBusiness.id}`)
       toast.success('Empleado eliminado')
+      // Quitar del estado local de inmediato (el backend lo elimina físicamente)
+      setEmployees((prev) => prev.filter((e) => e.id !== emp.id))
       fetchEmployees()
     } catch (err) { toast.error(err.message || 'Error al eliminar') }
   }

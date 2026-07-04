@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { NavLink, Link, Outlet, useNavigate } from 'react-router-dom'
-import { Calendar, CalendarDays, ClipboardList, Store, ChevronDown, LogOut, LayoutDashboard } from 'lucide-react'
+import { NavLink, Link, Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { Calendar, CalendarDays, ClipboardList, Store, ChevronDown, LogOut, LayoutDashboard, User } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useUserRole } from '../../hooks/useUserRole'
 import Avatar from '../ui/Avatar'
@@ -10,8 +10,13 @@ export default function ClientLayout() {
   const { profile, logout } = useAuth()
   const { isAdmin, isEmployee } = useUserRole()
   const navigate = useNavigate()
+  const location = useLocation()
   const [showUserMenu, setShowUserMenu] = useState(false)
   const menuRef = useRef(null)
+
+  const profilePath = location.pathname.startsWith('/employee')
+    ? '/employee/profile'
+    : '/client/profile'
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -85,6 +90,14 @@ export default function ClientLayout() {
 
             {showUserMenu && (
               <div className={styles.dropdown}>
+                <button
+                  className={styles.dropdownItem}
+                  onClick={() => { navigate(profilePath); setShowUserMenu(false) }}
+                >
+                  <User size={14} />
+                  Mi Perfil
+                </button>
+                <div className={styles.divider} />
                 <button
                   className={`${styles.dropdownItem} ${styles.dangerItem}`}
                   onClick={handleLogout}

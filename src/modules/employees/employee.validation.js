@@ -112,6 +112,24 @@ export const updateEmployeeSchema = z
   );
 
 /**
+ * Esquema para que un empleado autenticado actualice su propio teléfono.
+ * Solo permite `phone`; el resto de campos (rol, email, etc.) se gestionan
+ * exclusivamente desde el endpoint de administración (owner).
+ */
+export const updateOwnEmployeeSchema = z.object({
+  businessId: z
+    .string({ required_error: 'El businessId es requerido' })
+    .uuid('El businessId debe ser un UUID válido'),
+
+  phone: z
+    .string()
+    .max(20, 'El teléfono no puede superar los 20 caracteres')
+    .trim()
+    .nullable()
+    .optional(),
+});
+
+/**
  * Esquema para el parámetro de ruta :id (employeeId).
  */
 export const employeeIdParamSchema = z.object({
@@ -133,6 +151,7 @@ export const businessIdParamSchema = z.object({
 export default {
   createEmployeeSchema,
   updateEmployeeSchema,
+  updateOwnEmployeeSchema,
   employeeIdParamSchema,
   businessIdParamSchema,
 };
