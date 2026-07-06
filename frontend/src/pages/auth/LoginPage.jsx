@@ -84,7 +84,7 @@ export default function LoginPage() {
           required
         />
 
-        <Button type="submit" loading={loading} fullWidth size="lg">
+        <Button type="submit" loading={loading} fullWidth size="lg" className={styles.submitBtn}>
           Iniciar Sesión
         </Button>
       </form>

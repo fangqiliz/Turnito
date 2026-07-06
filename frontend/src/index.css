@@ -4,47 +4,68 @@
    ===================================================================== */
 
 /* ─── Google Fonts ─── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;900&family=Inter:wght@400;500;600;700;800&display=swap');
 
 /* ─── CSS Custom Properties ─── */
 :root {
-  /* Colores de fondo */
-  --color-bg-primary: #0A0714;
-  --color-bg-secondary: #131025;
-  --color-bg-tertiary: #1C1735;
-  --color-bg-elevated: #241E3A;
-  --color-bg-glass: rgba(19, 16, 37, 0.75);
+  /* PALETA PRINCIPAL TURNITO */
+  /* Azul Tecnológico - Color dominante */
+  --color-primary: #2563EB;
+  --color-primary-dark: #1D4ED8;
+  --color-primary-light: #3B82F6;
+  --color-primary-subtle: rgba(37, 99, 235, 0.08);
+  --color-primary-glow: rgba(37, 99, 235, 0.15);
 
-  /* Colores de acento */
-  --color-accent: #7C3AED;
-  --color-accent-hover: #6D28D9;
-  --color-accent-light: #8B5CF6;
-  --color-accent-glow: rgba(124, 58, 237, 0.2);
-  --color-accent-subtle: rgba(124, 58, 237, 0.08);
+  /* Verde Eficiencia - Para éxito y disponibilidad */
+  --color-success: #22C55E;
+  --color-success-dark: #16A34A;
+  --color-success-light: #4ADE80;
+  --color-success-bg: rgba(34, 197, 94, 0.1);
+
+  /* Morado Innovación - Para badges y acentos secundarios */
+  --color-secondary: #7C3AED;
+  --color-secondary-dark: #6D28D9;
+  --color-secondary-light: #A78BFA;
+  --color-secondary-subtle: rgba(124, 58, 237, 0.08);
+
+  /* Colores de fondo */
+  --color-bg-primary: #FFFFFF;
+  --color-bg-secondary: #F9FAFB;
+  --color-bg-tertiary: #F3F4F6;
+  --color-bg-elevated: #FFFFFF;
+  --color-bg-glass: rgba(255, 255, 255, 0.95);
 
   /* Colores de texto */
-  --color-text-primary: #F1EDFC;
-  --color-text-secondary: #A89DC8;
-  --color-text-muted: #6B5B8D;
-  --color-text-inverse: #0A0714;
+  --color-text-primary: #1F2937;
+  --color-text-secondary: #4B5563;
+  --color-text-muted: #9CA3AF;
+  --color-text-inverse: #FFFFFF;
 
   /* Colores de borde */
-  --color-border: rgba(124, 58, 237, 0.12);
-  --color-border-hover: rgba(124, 58, 237, 0.25);
-  --color-border-focus: rgba(124, 58, 237, 0.5);
+  --color-border: #E5E7EB;
+  --color-border-hover: #D1D5DB;
+  --color-border-focus: rgba(37, 99, 235, 0.3);
 
   /* Colores semánticos */
-  --color-success: #10B981;
-  --color-success-bg: rgba(16, 185, 129, 0.1);
   --color-warning: #F59E0B;
   --color-warning-bg: rgba(245, 158, 11, 0.1);
   --color-danger: #EF4444;
   --color-danger-bg: rgba(239, 68, 68, 0.1);
-  --color-info: #3B82F6;
-  --color-info-bg: rgba(59, 130, 246, 0.1);
+  --color-info: #2563EB;
+  --color-info-bg: rgba(37, 99, 235, 0.1);
+  
+  /* Aliases para compatibilidad */
+  --color-accent: #2563EB;
+  --color-accent-hover: #1D4ED8;
+  --color-accent-light: #3B82F6;
+  --color-accent-glow: rgba(37, 99, 235, 0.15);
+  --color-accent-subtle: rgba(37, 99, 235, 0.08);
 
   /* Tipografía */
   --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-family-heading: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  
+  /* Font sizes */
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.8125rem;
   --font-size-base: 0.875rem;
@@ -54,14 +75,89 @@
   --font-size-2xl: 1.5rem;
   --font-size-3xl: 1.875rem;
   --font-size-4xl: 2.25rem;
+  
+  /* Font weights */
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
   --font-weight-extrabold: 800;
+  --font-weight-black: 900;
+  
+  /* Line heights */
   --line-height-tight: 1.25;
   --line-height-normal: 1.5;
-  --line-height-relaxed: 1.75;
+  --line-height-relaxed: 1.6;
+  
+  /* ═══════════════════════════════════════════════════════════════
+     JERARQUÍA TIPOGRÁFICA
+     ═══════════════════════════════════════════════════════════════ */
+  
+  /* H1 - 48px, Nunito 900 */
+  --typography-h1-family: var(--font-family-heading);
+  --typography-h1-size: 3rem;
+  --typography-h1-weight: 900;
+  --typography-h1-height: 1.2;
+  
+  /* H2 - 32px, Nunito 700 */
+  --typography-h2-family: var(--font-family-heading);
+  --typography-h2-size: 2rem;
+  --typography-h2-weight: 700;
+  --typography-h2-height: 1.3;
+  
+  /* H3 - 24px, Nunito 700 */
+  --typography-h3-family: var(--font-family-heading);
+  --typography-h3-size: 1.5rem;
+  --typography-h3-weight: 700;
+  --typography-h3-height: 1.35;
+  
+  /* H4 - 20px, Nunito 700 */
+  --typography-h4-family: var(--font-family-heading);
+  --typography-h4-size: 1.25rem;
+  --typography-h4-weight: 700;
+  --typography-h4-height: 1.4;
+  
+  /* Body Large - 18px, Inter 400 */
+  --typography-body-lg-family: var(--font-family);
+  --typography-body-lg-size: 1.125rem;
+  --typography-body-lg-weight: 400;
+  --typography-body-lg-height: 1.5;
+  
+  /* Body - 16px, Inter 400 */
+  --typography-body-family: var(--font-family);
+  --typography-body-size: 1rem;
+  --typography-body-weight: 400;
+  --typography-body-height: 1.5;
+  
+  /* Body Small - 14px, Inter 400 */
+  --typography-body-sm-family: var(--font-family);
+  --typography-body-sm-size: 0.875rem;
+  --typography-body-sm-weight: 400;
+  --typography-body-sm-height: 1.5;
+  
+  /* Caption - 12px, Inter 400 */
+  --typography-caption-family: var(--font-family);
+  --typography-caption-size: 0.75rem;
+  --typography-caption-weight: 400;
+  --typography-caption-height: 1.5;
+  
+  /* Labels - 14px, Inter 500 */
+  --typography-label-family: var(--font-family);
+  --typography-label-size: 0.875rem;
+  --typography-label-weight: 500;
+  --typography-label-height: 1.5;
+  
+  /* Buttons - 16px, Nunito 700 */
+  --typography-button-family: var(--font-family-heading);
+  --typography-button-size: 1rem;
+  --typography-button-weight: 700;
+  --typography-button-height: 1.5;
+  
+  /* Badges - 12px, Inter 500 */
+  --typography-badge-family: var(--font-family);
+  --typography-badge-size: 0.75rem;
+  --typography-badge-weight: 500;
+  --typography-badge-height: 1.4;
 
   /* Espaciado */
   --space-0: 0;
@@ -87,11 +183,11 @@
   --radius-full: 9999px;
 
   /* Sombras */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2);
-  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.25);
-  --shadow-glow: 0 0 20px rgba(124, 58, 237, 0.15);
-  --shadow-glow-lg: 0 0 40px rgba(124, 58, 237, 0.2);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
+  --shadow-glow: 0 0 20px rgba(37, 99, 235, 0.1);
+  --shadow-glow-lg: 0 0 40px rgba(37, 99, 235, 0.15);
 
   /* Transiciones */
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -174,15 +270,45 @@ ul, ol {
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-weight: var(--font-weight-semibold);
-  line-height: var(--line-height-tight);
+  font-family: var(--font-family-heading);
   color: var(--color-text-primary);
 }
 
-h1 { font-size: var(--font-size-3xl); }
-h2 { font-size: var(--font-size-2xl); }
-h3 { font-size: var(--font-size-xl); }
-h4 { font-size: var(--font-size-lg); }
+h1 {
+  font-size: var(--typography-h1-size);
+  font-weight: var(--typography-h1-weight);
+  line-height: var(--typography-h1-height);
+}
+
+h2 {
+  font-size: var(--typography-h2-size);
+  font-weight: var(--typography-h2-weight);
+  line-height: var(--typography-h2-height);
+}
+
+h3 {
+  font-size: var(--typography-h3-size);
+  font-weight: var(--typography-h3-weight);
+  line-height: var(--typography-h3-height);
+}
+
+h4 {
+  font-size: var(--typography-h4-size);
+  font-weight: var(--typography-h4-weight);
+  line-height: var(--typography-h4-height);
+}
+
+h5 {
+  font-size: var(--typography-h4-size);
+  font-weight: var(--typography-h4-weight);
+  line-height: var(--typography-h4-height);
+}
+
+h6 {
+  font-size: var(--typography-body-lg-size);
+  font-weight: var(--typography-label-weight);
+  line-height: var(--typography-label-height);
+}
 
 p {
   color: var(--color-text-secondary);

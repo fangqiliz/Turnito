@@ -4,6 +4,8 @@ import { Calendar, CalendarDays, ClipboardList, Store, ChevronDown, LogOut, Layo
 import { useAuth } from '../../context/AuthContext'
 import { useUserRole } from '../../hooks/useUserRole'
 import Avatar from '../ui/Avatar'
+import NotificationCenter from '../notifications/NotificationCenter'
+import IsotipoTurnito from '../../assets/IsotipoTurnito.png'
 import styles from './ClientLayout.module.css'
 
 export default function ClientLayout() {
@@ -38,7 +40,12 @@ export default function ClientLayout() {
       <header className={styles.navbar}>
         {/* Logo */}
         <Link to="/client/appointments" className={styles.logo}>
-          <Calendar size={24} className={styles.logoIcon} />
+          <img 
+            src={IsotipoTurnito} 
+            alt="Turnito" 
+            className={styles.logoIcon}
+            style={{ width: 40, height: 40, objectFit: 'contain' }}
+          />
           <span className={styles.logoText}>Turnito</span>
         </Link>
 
@@ -69,7 +76,7 @@ export default function ClientLayout() {
           </NavLink>
         </nav>
 
-        {/* Right: dashboard shortcut (only for admins) + user menu */}
+        {/* Right: dashboard shortcut (only for admins) + notifications + user menu */}
         <div className={styles.right}>
           {isAdmin && (
             <Link to="/dashboard" className={styles.dashboardLink}>
@@ -77,6 +84,8 @@ export default function ClientLayout() {
               Panel de negocio
             </Link>
           )}
+
+          <NotificationCenter />
 
           <div className={styles.userMenu} ref={menuRef}>
             <button

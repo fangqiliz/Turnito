@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CalendarDays, Users, Clock, TrendingUp } from 'lucide-react'
 import { useBusiness } from '../../context/BusinessContext'
-import api from '../../config/api'
+import { useBusinessAppointments } from '../../hooks/useAppointments'
 import Badge from '../../components/ui/Badge'
 import Spinner from '../../components/ui/Spinner'
 import EmptyState from '../../components/ui/EmptyState'
@@ -13,35 +13,13 @@ import styles from './DashboardPages.module.css'
 export default function OverviewPage() {
   const navigate = useNavigate()
   const { activeBusiness } = useBusiness()
-  const [appointments, setAppointments] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [stats, setStats] = useState({ today: 0, pending: 0, confirmed: 0, completed: 0 })
+  
+  // Usar el mismo hook que AppointmentsPage, sin filtros
+  const { appointments, loading } = useBusinessAppointments(activeBusiness?.id, {})
 
-  useEffect(() => {
-    if (!activeBusiness) return
-    const fetchData = async () => {
-      setLoading(true)
-      try {
-        const today = new Date().toISOString().split('T')[0]
-        const res = await api.get(`/appointments/business/${activeBusiness.id}?date=${today}&limit=10`)
-        if (res.success) {
-          const appts = res.data.appointments || res.data || []
-          setAppointments(appts.slice(0, 5))
-          setStats({
-            today: appts.length,
-            pending: appts.filter(a => a.status === 'pending').length,
-            confirmed: appts.filter(a => a.status === 'confirmed').length,
-            completed: appts.filter(a => a.status === 'completed').length,
-          })
-        }
-      } catch (err) {
-        console.error('Error cargando datos:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchData()
-  }, [activeBusiness])
+  console.log('[OverviewPage] activeBusiness:', activeBusiness)
+  console.log('[OverviewPage] appointments:', appointments)
+  console.log('[OverviewPage] loading:', loading)
 
   if (!activeBusiness) {
     return (
@@ -55,6 +33,13 @@ export default function OverviewPage() {
   }
 
   if (loading) return <Spinner fullPage size="lg" />
+
+  const stats = {
+    today: appointments.length,
+    pending: appointments.filter(a => a.status === 'pending').length,
+    confirmed: appointments.filter(a => a.status === 'confirmed').length,
+    completed: appointments.filter(a => a.status === 'completed').length,
+  }
 
   const metrics = [
     { icon: CalendarDays, label: 'Citas Hoy', value: stats.today, color: 'var(--color-accent)', bg: 'var(--color-accent-subtle)' },
@@ -93,7 +78,7 @@ export default function OverviewPage() {
             description="No tienes citas programadas para hoy."
           />
         ) : (
-          appointments.map((appt) => (
+          appointments.slice(0, 5).map((appt) => (
             <div key={appt.id} className={styles.appointmentItem}>
               <div className={styles.appointmentTime}>
                 <div className={styles.appointmentTimeValue}>

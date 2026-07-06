@@ -27,7 +27,7 @@
 /* Variants */
 .success {
   background: var(--color-success-bg);
-  color: var(--color-success);
+  color: var(--color-success-dark);
 }
 .success .dot { background: var(--color-success); }
 
@@ -45,18 +45,18 @@
 
 .info {
   background: var(--color-info-bg);
-  color: var(--color-info);
+  color: var(--color-primary-dark);
 }
 .info .dot { background: var(--color-info); }
 
 .accent {
-  background: var(--color-accent-subtle);
-  color: var(--color-accent-light);
+  background: var(--color-secondary-subtle);
+  color: var(--color-secondary-dark);
 }
-.accent .dot { background: var(--color-accent); }
+.accent .dot { background: var(--color-secondary); }
 
 .muted {
-  background: rgba(107, 91, 141, 0.1);
+  background: rgba(156, 163, 175, 0.1);
   color: var(--color-text-muted);
 }
 .muted .dot { background: var(--color-text-muted); }

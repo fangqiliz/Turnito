@@ -91,9 +91,9 @@ class AppointmentService {
    * @private
    * @param {string} employeeId
    * @param {string} businessId
-   * @returns {Promise<object>} employee record
+   * @returns {Promise<object|null>} employee record o null si no existe o no está activo
    */
-  async #assertEmployeeActive(employeeId, businessId) {
+  async #getActiveEmployee(employeeId, businessId) {
     const { data: employee, error } = await supabase
       .from('employees')
       .select('id, business_id, full_name, is_active')
@@ -102,15 +102,11 @@ class AppointmentService {
       .single();
 
     if (error || !employee) {
-      throw ApiError.notFound(
-        `El empleado con id "${employeeId}" no existe en este negocio.`
-      );
+      return null;
     }
 
     if (!employee.is_active) {
-      throw ApiError.badRequest(
-        `El empleado "${employee.full_name}" no está activo actualmente.`
-      );
+      return null;
     }
 
     return employee;
@@ -133,59 +129,60 @@ class AppointmentService {
    * Regla 6: Verifica que start_time y end_time estén dentro del horario laboral
    * del empleado para el día de la semana correspondiente.
    *
-   * El horario laboral se define como TIME (sin zona horaria), por lo que
-   * comparamos usando la hora local del start_time en UTC.
+   * Retorna true si está dentro del horario, false en caso contrario.
+   * No lanza excepción.
    *
    * @private
    * @param {string} employeeId
    * @param {string} startTime  - ISO 8601
    * @param {string} endTime    - ISO 8601
+   * @returns {Promise<boolean>} true si está dentro del horario laboral
    */
-  async #assertWithinWorkSchedule(employeeId, startTime, endTime) {
-    const startDate = new Date(startTime);
-    const endDate = new Date(endTime);
+  async #isWithinWorkSchedule(employeeId, startTime, endTime) {
+    try {
+      const startDate = new Date(startTime);
+      const endDate = new Date(endTime);
 
-    // day_of_week: 0 = Domingo … 6 = Sábado (UTC)
-    const dayOfWeek = startDate.getUTCDay();
+      // day_of_week: 0 = Domingo … 6 = Sábado (UTC)
+      const dayOfWeek = startDate.getUTCDay();
 
-    // Hora en formato HH:MM:SS (UTC) para comparar con el tipo TIME de Postgres
-    const toTimeStr = (d) =>
-      `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}:00`;
+      // Hora en formato HH:MM:SS (UTC) para comparar con el tipo TIME de Postgres
+      const toTimeStr = (d) =>
+        `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}:00`;
 
-    const startTimeStr = toTimeStr(startDate);
-    const endTimeStr = toTimeStr(endDate);
+      const startTimeStr = toTimeStr(startDate);
+      const endTimeStr = toTimeStr(endDate);
 
-    const { data: schedules, error } = await supabase
-      .from('schedules')
-      .select('start_time, end_time')
-      .eq('employee_id', employeeId)
-      .eq('day_of_week', dayOfWeek)
-      .eq('is_active', true);
+      const { data: schedules, error } = await supabase
+        .from('schedules')
+        .select('start_time, end_time')
+        .eq('employee_id', employeeId)
+        .eq('day_of_week', dayOfWeek)
+        .eq('is_active', true);
 
-    if (error) {
-      throw ApiError.internal(`Error al verificar horario laboral: ${error.message}`);
-    }
+      if (error || !schedules || schedules.length === 0) {
+        return false;
+      }
 
-    if (!schedules || schedules.length === 0) {
-      throw ApiError.badRequest(
-        'El empleado no tiene horario laboral configurado para ese día.'
+      // Verificar que ALGÚN bloque de horario cubra completamente la cita
+      const isWithinSchedule = schedules.some(
+        (s) => startTimeStr >= s.start_time && endTimeStr <= s.end_time
       );
-    }
 
-    // Verificar que ALGÚN bloque de horario cubra completamente la cita
-    const isWithinSchedule = schedules.some(
-      (s) => startTimeStr >= s.start_time && endTimeStr <= s.end_time
-    );
-
-    if (!isWithinSchedule) {
-      throw ApiError.badRequest(
-        'La cita solicitada está fuera del horario laboral del empleado.'
+      return isWithinSchedule;
+    } catch (err) {
+      logger.warn(
+        `[AppointmentService] Error al verificar horario laboral: ${err.message}`
       );
+      return false;
     }
   }
 
   /**
    * Reglas 7 y 8: Verifica que el empleado no tenga citas solapadas.
+   *
+   * Retorna true si NO hay solapamiento, false si hay conflicto.
+   * No lanza excepción.
    *
    * Una cita nueva [newStart, newEnd) se solapa con una existente [eStart, eEnd)
    * si: newStart < eEnd AND newEnd > eStart
@@ -197,34 +194,38 @@ class AppointmentService {
    * @param {string} startTime  - ISO 8601
    * @param {string} endTime    - ISO 8601
    * @param {string} [excludeId] - ID de la cita a excluir (para updates)
+   * @returns {Promise<boolean>} true si NO hay solapamiento
    */
-  async #assertNoOverlap(employeeId, startTime, endTime, excludeId = null) {
-    // Aprovechamos el CONSTRAINT de exclusión en Supabase, pero también
-    // verificamos desde la aplicación para dar mensajes de error claros.
-    let query = supabase
-      .from('appointments')
-      .select('id, start_time, end_time, status')
-      .eq('employee_id', employeeId)
-      .neq('status', 'cancelled')
-      .lt('start_time', endTime)   // eStart < newEnd
-      .gt('end_time', startTime);  // eEnd   > newStart
+  async #hasNoOverlap(employeeId, startTime, endTime, excludeId = null) {
+    try {
+      let query = supabase
+        .from('appointments')
+        .select('id, start_time, end_time, status')
+        .eq('employee_id', employeeId)
+        .neq('status', 'cancelled')
+        .lt('start_time', endTime)   // eStart < newEnd
+        .gt('end_time', startTime);  // eEnd   > newStart
 
-    if (excludeId) {
-      query = query.neq('id', excludeId);
-    }
+      if (excludeId) {
+        query = query.neq('id', excludeId);
+      }
 
-    const { data: conflicts, error } = await query;
+      const { data: conflicts, error } = await query;
 
-    if (error) {
-      throw ApiError.internal(`Error al verificar disponibilidad: ${error.message}`);
-    }
+      if (error) {
+        logger.warn(
+          `[AppointmentService] Error al verificar disponibilidad: ${error.message}`
+        );
+        return false;
+      }
 
-    if (conflicts && conflicts.length > 0) {
-      const conflict = conflicts[0];
-      throw ApiError.badRequest(
-        `El empleado ya tiene una cita de ${conflict.start_time} a ${conflict.end_time} ` +
-        `que se superpone con el horario solicitado (doble reserva no permitida).`
+      // Retorna true si NO hay conflictos
+      return !conflicts || conflicts.length === 0;
+    } catch (err) {
+      logger.warn(
+        `[AppointmentService] Error al verificar solapamiento: ${err.message}`
       );
+      return false;
     }
   }
 
@@ -340,7 +341,15 @@ class AppointmentService {
   // ────────────────────────────────────────────────────────────────────────────
 
   /**
-   * Crea una nueva cita aplicando todas las reglas de negocio.
+   * Crea una nueva cita aplicando las reglas de negocio.
+   *
+   * Cambio: Si el empleado seleccionado no tiene horario o no está disponible,
+   * la cita se crea sin asignarle empleado (employee_id = null) en lugar de
+   * lanzar un error. Solo se lanzan errores para casos realmente inválidos:
+   * - Negocio no existe
+   * - Servicio no existe
+   * - Fecha es en el pasado
+   * - etc.
    *
    * @param {object}      payload    - Datos validados por Zod
    * @param {string|null} clientId   - UUID del usuario autenticado (null si es anónimo)
@@ -367,17 +376,49 @@ class AppointmentService {
     // ── Regla 3: Servicio activo + obtener duration_minutes ───────────────────
     const service = await this.#assertServiceActive(service_id, business_id);
 
-    // ── Regla 4: Empleado activo ──────────────────────────────────────────────
-    await this.#assertEmployeeActive(employee_id, business_id);
-
     // ── Regla 5: Calcular end_time ────────────────────────────────────────────
     const end_time = this.#calculateEndTime(start_time, service.duration_minutes);
 
-    // ── Regla 6: Verificar horario laboral ────────────────────────────────────
-    await this.#assertWithinWorkSchedule(employee_id, start_time, end_time);
+    // ── Nuevo comportamiento: Verificar disponibilidad del empleado ────────────
+    // Si el empleado no existe, no está activo, o no tiene horario/disponibilidad,
+    // simplemente proceder sin empleado (employee_id = null).
+    let finalEmployeeId = null;
 
-    // ── Reglas 7 y 8: Verificar disponibilidad / doble reserva ───────────────
-    await this.#assertNoOverlap(employee_id, start_time, end_time);
+    if (employee_id) {
+      // Verificar que el empleado existe y está activo
+      const employee = await this.#getActiveEmployee(employee_id, business_id);
+
+      if (employee) {
+        // Verificar horario laboral y disponibilidad
+        const isWithinSchedule = await this.#isWithinWorkSchedule(
+          employee_id,
+          start_time,
+          end_time
+        );
+
+        const hasNoOverlap = await this.#hasNoOverlap(
+          employee_id,
+          start_time,
+          end_time
+        );
+
+        // Solo asignar el empleado si ambas validaciones pasan
+        if (isWithinSchedule && hasNoOverlap) {
+          finalEmployeeId = employee_id;
+        } else {
+          // Registrar por qué no se asignó el empleado
+          logger.info(
+            `[AppointmentService] Employee ${employee_id} not assigned: ` +
+            `withinSchedule=${isWithinSchedule}, noOverlap=${hasNoOverlap}`
+          );
+        }
+      } else {
+        // Empleado no existe o no está activo
+        logger.info(
+          `[AppointmentService] Employee ${employee_id} not found or inactive`
+        );
+      }
+    }
 
     // ── Regla 9: Insertar con aislamiento multi-tenant ────────────────────────
     const { data: appointment, error } = await supabase
@@ -385,7 +426,7 @@ class AppointmentService {
       .insert({
         business_id,
         service_id,
-        employee_id,
+        employee_id: finalEmployeeId,  // Puede ser null
         client_id:    clientId ?? null,
         start_time,
         end_time,
@@ -405,9 +446,10 @@ class AppointmentService {
     if (error) {
       // El constraint de exclusión de Postgres (appointments_no_employee_overlap)
       // puede también capturar solapamientos en race conditions.
+      // Pero como ahora allowimos employee_id = null, esto no debe pasar frecuentemente.
       if (error.code === '23P01') {
         throw ApiError.badRequest(
-          'El empleado ya tiene una cita que se superpone con el horario solicitado.'
+          'Conflicto al crear la cita. Por favor, intenta de nuevo.'
         );
       }
       throw ApiError.internal(`Error al crear la cita: ${error.message}`);
@@ -419,7 +461,7 @@ class AppointmentService {
     // ── Regla 11: Registro de eventos ─────────────────────────────────────────
     logger.info(
       `[AppointmentService] CREATED | appointment=${appointment.id} ` +
-      `business=${business_id} employee=${employee_id} service=${service_id} ` +
+      `business=${business_id} employee=${finalEmployeeId ?? 'unassigned'} service=${service_id} ` +
       `client_id=${clientId ?? 'anon'} start=${start_time} end=${end_time}`
     );
 
