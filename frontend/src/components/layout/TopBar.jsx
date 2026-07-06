@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Menu, Bell, ChevronDown, LogOut, User, Building2 } from 'lucide-react'
+import { Menu, ChevronDown, LogOut, User, Building2 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useBusiness } from '../../context/BusinessContext'
 import Avatar from '../ui/Avatar'
+import NotificationCenter from '../notifications/NotificationCenter'
 import styles from './TopBar.module.css'
 
 export default function TopBar({ onMenuToggle }) {
@@ -73,9 +74,7 @@ export default function TopBar({ onMenuToggle }) {
       </div>
 
       <div className={styles.right}>
-        <button className={styles.iconBtn} aria-label="Notificaciones">
-          <Bell size={20} />
-        </button>
+        <NotificationCenter />
 
         {/* User Menu */}
         <div className={styles.userMenu} ref={userMenuRef}>

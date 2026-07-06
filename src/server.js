@@ -2,10 +2,14 @@ import env from './config/env.js'; // Debe importarse primero para asegurar que 
 import app from './app.js';
 import logger from './config/logger.js';
 import './config/supabase.js'; // Inicializa el cliente Supabase al arrancar
+import { initializeCronJobs } from './config/cronJobs.js'
 
 
 const server = app.listen(env.PORT, () => {
   logger.info(`🚀 Servidor de Turnito ejecutándose en modo [${env.NODE_ENV}] en el puerto: ${env.PORT}`);
+  
+  // Inicializar cron jobs
+  initializeCronJobs();
 });
 
 /**

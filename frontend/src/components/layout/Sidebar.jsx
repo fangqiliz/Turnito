@@ -8,10 +8,11 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  Calendar,
   Building2
 } from 'lucide-react'
 
+import IsotipoTurnito from '../../assets/IsotipoTurnito.png'
+import LogoSideBar from '../../assets/LogoSideBar.png'
 import styles from './Sidebar.module.css'
 
 const NAV_ITEMS = [
@@ -30,12 +31,20 @@ export default function Sidebar({ collapsed, onToggle }) {
 
       <div className={styles.header}>
         <div className={styles.logo}>
-          <Calendar size={28} className={styles.logoIcon} />
-
-          {!collapsed && (
-            <span className={styles.logoText}>
-              Turnito
-            </span>
+          {collapsed ? (
+            <img 
+              src={IsotipoTurnito} 
+              alt="Turnito" 
+              className={styles.logoIcon}
+              style={{ width: 56, height: 56, objectFit: 'contain' }}
+            />
+          ) : (
+            <img 
+              src={LogoSideBar} 
+              alt="Turnito" 
+              className={styles.logoIcon}
+              style={{ height: 48, objectFit: 'contain', maxWidth: 220 }}
+            />
           )}
         </div>
 

@@ -1,6 +1,7 @@
 .layout {
   display: flex;
   min-height: 100vh;
+  background: #FFFFFF;
 }
 
 .hero {
@@ -10,73 +11,120 @@
   justify-content: center;
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, var(--color-bg-primary) 0%, #1a0e35 50%, var(--color-bg-primary) 100%);
+  background: #FFFFFF;
+  padding: var(--space-8);
 }
 
 .heroContent {
   position: relative;
   z-index: 2;
-  padding: var(--space-12);
-  max-width: 500px;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
 }
 
 .heroBg {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 30% 40%, rgba(124, 58, 237, 0.12) 0%, transparent 50%),
-    radial-gradient(circle at 70% 60%, rgba(168, 85, 247, 0.08) 0%, transparent 40%);
+    radial-gradient(circle at 30% 40%, rgba(37, 99, 235, 0.02) 0%, transparent 60%),
+    radial-gradient(circle at 70% 60%, rgba(34, 197, 94, 0.02) 0%, transparent 60%);
   z-index: 1;
 }
 
-.logoArea {
+/* ─── BRANDING SECTION ─── */
+.brandingSection {
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: var(--space-4);
-  margin-bottom: var(--space-6);
-}
-
-.logoIcon {
-  color: var(--color-accent);
-}
-
-.logoText {
-  font-size: var(--font-size-4xl);
-  font-weight: var(--font-weight-extrabold);
-  background: linear-gradient(135deg, var(--color-accent-light), #c084fc, var(--color-accent));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.tagline {
-  font-size: var(--font-size-xl);
-  color: var(--color-text-secondary);
-  line-height: var(--line-height-relaxed);
   margin-bottom: var(--space-10);
 }
 
+.isotipoContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+}
+
+.isotipoImage {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.08));
+  animation: slideInDown 0.6s ease-out;
+}
+
+.logoContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.logoText {
+  font-family: var(--typography-h1-family);
+  font-size: 2.5rem;
+  font-weight: 900;
+  color: #1F2937;
+  line-height: 1.1;
+  margin: 0;
+}
+
+.slogan {
+  font-family: var(--typography-button-family);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #4B5563;
+  letter-spacing: 0.3px;
+  margin: 0;
+}
+
+/* ─── VALUE PROPOSITION ─── */
+.valueProposition {
+  font-family: var(--typography-body-family);
+  font-size: 1rem;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+  margin: 0 0 var(--space-8) 0;
+  max-width: 420px;
+}
+
+/* ─── FEATURES ─── */
 .features {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  width: 100%;
 }
 
 .feature {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-3);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-base);
+  font-size: 0.95rem;
+  font-family: var(--typography-body-family);
+  line-height: 1.5;
+}
+
+.feature span:last-child {
+  flex: 1;
+  padding-top: 2px;
 }
 
 .featureDot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: var(--color-accent);
+  background: var(--color-primary);
   flex-shrink: 0;
-  box-shadow: 0 0 8px rgba(124, 58, 237, 0.5);
+  margin-top: 6px;
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.3);
 }
 
 .formSide {
@@ -85,50 +133,83 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-8);
-  background: var(--color-bg-primary);
+  background: linear-gradient(135deg, #FAFBFC 0%, #F0F4F8 100%);
 }
 
 .formContainer {
   width: 100%;
-  max-width: 420px;
-  animation: fadeInUp 500ms ease-out;
+  max-width: 380px;
+  animation: fadeInUp 600ms ease-out;
 }
 
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { 
+    opacity: 0; 
+    transform: translateY(20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
 }
 
-@media (max-width: 900px) {
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 1024px) {
   .layout {
     flex-direction: column;
   }
 
   .hero {
-    min-height: 200px;
-    padding: var(--space-8);
+    min-height: 280px;
+    padding: var(--space-6);
   }
 
   .heroContent {
-    padding: var(--space-6);
-    text-align: center;
+    max-width: 100%;
   }
 
-  .logoArea {
-    justify-content: center;
+  .brandingSection {
+    margin-bottom: var(--space-6);
+  }
+
+  .isotipoContainer {
+    width: 64px;
+    height: 64px;
+  }
+
+  .logoText {
+    font-size: 2rem;
+  }
+
+  .slogan {
+    font-size: 0.85rem;
+  }
+
+  .valueProposition {
+    font-size: 0.9rem;
+    margin-bottom: var(--space-6);
   }
 
   .features {
-    display: none;
-  }
-
-  .tagline {
-    font-size: var(--font-size-md);
-    margin-bottom: 0;
+    gap: var(--space-3);
   }
 
   .formSide {
-    flex: none;
+    min-height: 600px;
     padding: var(--space-6);
+  }
+
+  .formContainer {
+    max-width: 100%;
   }
 }

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   format,
+  parseISO,
   startOfMonth,
   endOfMonth,
   startOfWeek,
@@ -37,7 +38,11 @@ export default function Calendar({ appointments = [], selectedDate = '', onDateS
   const days       = eachDayOfInterval({ start: calStart, end: calEnd })
 
   const apptDates = new Set(
-    appointments.map(a => a.start_time?.slice(0, 10)).filter(Boolean)
+    appointments.map(a => {
+      if (!a.start_time) return null
+      const date = parseISO(a.start_time)
+      return format(date, 'yyyy-MM-dd')
+    }).filter(Boolean)
   )
 
   const handleDayClick = (day) => {
