@@ -1,15 +1,20 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import {
   CalendarDays, Users, Scissors, Clock,
-  TrendingUp, Building2, ArrowRight, MapPin, Phone,
+  Building2, ArrowRight, MapPin, Phone,
+  FileSpreadsheet, DollarSign, CalendarRange, CheckCircle2,
 } from 'lucide-react'
+import toast from 'react-hot-toast'
 import { useBusiness } from '../../context/BusinessContext'
 import api from '../../config/api'
+import appointmentsService from '../../services/appointments.service'
 import Badge from '../../components/ui/Badge'
+import Button from '../../components/ui/Button'
 import Spinner from '../../components/ui/Spinner'
 import EmptyState from '../../components/ui/EmptyState'
-import { format } from 'date-fns'
+import { exportAppointmentsToXlsx } from '../../utils/exportAppointments'
+import { format, isToday, isThisWeek } from 'date-fns'
 import { es } from 'date-fns/locale'
 import styles from './DashboardPages.module.css'
 
@@ -17,10 +22,11 @@ export default function AdminDashboard() {
   const navigate = useNavigate()
   const { activeBusiness } = useBusiness()
 
-  const [todayAppts, setTodayAppts] = useState([])
-  const [services, setServices]     = useState([])
-  const [employees, setEmployees]   = useState([])
-  const [loading, setLoading]       = useState(true)
+  const [appointments, setAppointments] = useState([])
+  const [services, setServices]         = useState([])
+  const [employees, setEmployees]       = useState([])
+  const [loading, setLoading]           = useState(true)
+  const [exporting, setExporting]       = useState(false)
 
   useEffect(() => {
     if (!activeBusiness) return
@@ -28,22 +34,19 @@ export default function AdminDashboard() {
     const load = async () => {
       setLoading(true)
       try {
-        const today = new Date().toISOString().split('T')[0]
-        const [apptRes, svcRes, empRes] = await Promise.all([
-          api.get(`/appointments/business/${activeBusiness.id}?date=${today}&limit=20`),
+        const [apptList, svcRes, empRes] = await Promise.all([
+          // Histórico completo (paginado) para métricas reales y exportación
+          appointmentsService.getAllByBusiness(activeBusiness.id),
           api.get(`/services/business/${activeBusiness.id}`),
           api.get(`/employees/business/${activeBusiness.id}`),
         ])
 
-        // /appointments/business returns { data: apptArray, total, page, limit }
-        if (apptRes.success) {
-          const list = apptRes.data?.data ?? apptRes.data?.appointments ?? []
-          setTodayAppts(Array.isArray(list) ? list : [])
-        }
+        setAppointments(Array.isArray(apptList) ? apptList : [])
         if (svcRes.success) setServices(Array.isArray(svcRes.data) ? svcRes.data : [])
         if (empRes.success) setEmployees(Array.isArray(empRes.data) ? empRes.data : [])
       } catch (err) {
         console.error('[AdminDashboard] Error cargando datos:', err)
+        toast.error('No se pudieron cargar los datos del panel.')
       } finally {
         setLoading(false)
       }
@@ -51,6 +54,66 @@ export default function AdminDashboard() {
 
     load()
   }, [activeBusiness])
+
+  // ── Métricas derivadas ──────────────────────────────────────────────────────
+  const metrics = useMemo(() => {
+    const todayAppts = appointments.filter((a) => a.start_time && isToday(new Date(a.start_time)))
+    const weekAppts  = appointments.filter((a) => a.start_time && isThisWeek(new Date(a.start_time), { weekStartsOn: 1 }))
+    const revenue = appointments.reduce((sum, a) => {
+      if (a.status === 'confirmed' || a.status === 'completed') {
+        return sum + Number(a.services?.price ?? 0)
+      }
+      return sum
+    }, 0)
+
+    return {
+      today:     todayAppts.length,
+      week:      weekAppts.length,
+      total:     appointments.length,
+      pending:   appointments.filter((a) => a.status === 'pending').length,
+      confirmed: appointments.filter((a) => a.status === 'confirmed').length,
+      completed: appointments.filter((a) => a.status === 'completed').length,
+      cancelled: appointments.filter((a) => a.status === 'cancelled').length,
+      no_show:   appointments.filter((a) => a.status === 'no_show').length,
+      revenue,
+      todayAppts: todayAppts.sort((a, b) => new Date(a.start_time) - new Date(b.start_time)),
+    }
+  }, [appointments])
+
+  const activeServices  = services.filter((s) => s.is_active).length
+  const activeEmployees = employees.filter((e) => e.is_active).length
+
+  const currency = (n) =>
+    `$${Number(n).toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+  const handleExport = async () => {
+    if (appointments.length === 0) {
+      toast.error('No hay citas para exportar.')
+      return
+    }
+    setExporting(true)
+    try {
+      await exportAppointmentsToXlsx({
+        business: activeBusiness,
+        appointments,
+        stats: {
+          total: metrics.total,
+          pending: metrics.pending,
+          confirmed: metrics.confirmed,
+          completed: metrics.completed,
+          cancelled: metrics.cancelled,
+          no_show: metrics.no_show,
+          revenue: metrics.revenue,
+        },
+      })
+      toast.success('Reporte exportado correctamente.')
+    } catch (err) {
+      console.error('[AdminDashboard] Error exportando:', err)
+      toast.error('Ocurrió un error al generar el archivo.')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   if (!activeBusiness) {
     return (
@@ -65,40 +128,15 @@ export default function AdminDashboard() {
 
   if (loading) return <Spinner fullPage size="lg" />
 
-  const pending   = todayAppts.filter((a) => a.status === 'pending').length
-  const confirmed = todayAppts.filter((a) => a.status === 'confirmed').length
-  const activeServices  = services.filter((s) => s.is_active).length
-  const activeEmployees = employees.filter((e) => e.is_active).length
-
   const stats = [
-    {
-      icon: CalendarDays,
-      label: 'Citas Hoy',
-      value: todayAppts.length,
-      color: 'var(--color-accent)',
-      bg: 'var(--color-accent-subtle)',
-    },
-    {
-      icon: Clock,
-      label: 'Pendientes',
-      value: pending,
-      color: 'var(--color-warning)',
-      bg: 'var(--color-warning-bg)',
-    },
-    {
-      icon: Scissors,
-      label: 'Servicios activos',
-      value: activeServices,
-      color: 'var(--color-success)',
-      bg: 'var(--color-success-bg)',
-    },
-    {
-      icon: Users,
-      label: 'Empleados activos',
-      value: activeEmployees,
-      color: 'var(--color-info)',
-      bg: 'var(--color-info-bg)',
-    },
+    { icon: CalendarDays, label: 'Citas hoy',        value: metrics.today,     color: 'var(--color-accent)',  bg: 'var(--color-accent-subtle)' },
+    { icon: CalendarRange, label: 'Esta semana',     value: metrics.week,      color: 'var(--color-info)',    bg: 'var(--color-info-bg)' },
+    { icon: Clock,        label: 'Pendientes',       value: metrics.pending,   color: 'var(--color-warning)', bg: 'var(--color-warning-bg)' },
+    { icon: CheckCircle2, label: 'Completadas',      value: metrics.completed, color: 'var(--color-success)', bg: 'var(--color-success-bg)' },
+    { icon: CalendarDays, label: 'Total citas',      value: metrics.total,     color: 'var(--color-accent)',  bg: 'var(--color-accent-subtle)' },
+    { icon: DollarSign,   label: 'Ingresos est.',    value: currency(metrics.revenue), color: 'var(--color-success)', bg: 'var(--color-success-bg)' },
+    { icon: Scissors,     label: 'Servicios activos', value: activeServices,   color: 'var(--color-info)',    bg: 'var(--color-info-bg)' },
+    { icon: Users,        label: 'Empleados activos', value: activeEmployees,  color: 'var(--color-accent)',  bg: 'var(--color-accent-subtle)' },
   ]
 
   return (
@@ -107,12 +145,23 @@ export default function AdminDashboard() {
       <div className={styles.pageHeader}>
         <div>
           <h1 className={styles.pageTitle}>Panel Principal</h1>
-          <p className={styles.pageSubtitle}>{activeBusiness.name} — Resumen del día</p>
+          <p className={styles.pageSubtitle}>{activeBusiness.name} — Resumen general</p>
         </div>
-        <Link to="/dashboard/appointments" className={adminStyles.ctaLink}>
-          Ver todas las citas
-          <ArrowRight size={14} />
-        </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={FileSpreadsheet}
+            loading={exporting}
+            onClick={handleExport}
+          >
+            Exportar a Excel
+          </Button>
+          <Link to="/dashboard/appointments" style={ctaLinkStyle}>
+            Ver todas las citas
+            <ArrowRight size={14} />
+          </Link>
+        </div>
       </div>
 
       {/* Stat cards */}
@@ -121,7 +170,7 @@ export default function AdminDashboard() {
           <div
             key={s.label}
             className={styles.metricCard}
-            style={{ animationDelay: `${i * 70}ms` }}
+            style={{ animationDelay: `${i * 60}ms` }}
           >
             <div className={styles.metricIcon} style={{ background: s.bg, color: s.color }}>
               <s.icon size={20} />
@@ -132,19 +181,18 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 'var(--space-6)', alignItems: 'start' }}>
-
+      <div className={styles.overviewGrid}>
         {/* Today's appointments */}
         <div className={styles.section}>
           <h3 className={styles.sectionTitle}>Agenda de hoy</h3>
-          {todayAppts.length === 0 ? (
+          {metrics.todayAppts.length === 0 ? (
             <EmptyState
               icon={CalendarDays}
               title="Sin citas hoy"
               description="No hay citas programadas para hoy."
             />
           ) : (
-            todayAppts.slice(0, 8).map((appt, i) => (
+            metrics.todayAppts.slice(0, 8).map((appt, i) => (
               <div
                 key={appt.id}
                 className={styles.appointmentItem}
@@ -155,7 +203,7 @@ export default function AdminDashboard() {
                     {format(new Date(appt.start_time), 'HH:mm')}
                   </div>
                   <div className={styles.appointmentTimeLabel}>
-                    {appt.employees?.full_name ?? '—'}
+                    {appt.employees?.full_name ?? 'Sin asignar'}
                   </div>
                 </div>
                 <div className={styles.appointmentInfo}>
@@ -170,11 +218,12 @@ export default function AdminDashboard() {
           )}
         </div>
 
-        {/* Business summary */}
-        <div style={{ minWidth: 260 }}>
+        {/* Side column */}
+        <div>
+          {/* Business summary */}
           <div className={styles.section}>
             <h3 className={styles.sectionTitle}>
-              <Building2 size={16} style={{ display: 'inline', marginRight: 6 }} />
+              <Building2 size={16} style={{ display: 'inline', marginRight: 6, verticalAlign: 'text-bottom' }} />
               Negocio
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', fontSize: 'var(--font-size-sm)' }}>
@@ -212,22 +261,10 @@ export default function AdminDashboard() {
           <div className={styles.section}>
             <h3 className={styles.sectionTitle}>Equipo & Servicios</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-size-sm)' }}>
-                <span style={{ color: 'var(--color-text-muted)' }}>Empleados totales</span>
-                <span style={{ fontWeight: 'var(--font-weight-semibold)' }}>{employees.length}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-size-sm)' }}>
-                <span style={{ color: 'var(--color-text-muted)' }}>Empleados activos</span>
-                <span style={{ fontWeight: 'var(--font-weight-semibold)', color: 'var(--color-success)' }}>{activeEmployees}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-size-sm)' }}>
-                <span style={{ color: 'var(--color-text-muted)' }}>Servicios totales</span>
-                <span style={{ fontWeight: 'var(--font-weight-semibold)' }}>{services.length}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-size-sm)' }}>
-                <span style={{ color: 'var(--color-text-muted)' }}>Servicios activos</span>
-                <span style={{ fontWeight: 'var(--font-weight-semibold)', color: 'var(--color-success)' }}>{activeServices}</span>
-              </div>
+              <CounterRow label="Empleados totales" value={employees.length} />
+              <CounterRow label="Empleados activos" value={activeEmployees} accent="var(--color-success)" />
+              <CounterRow label="Servicios totales" value={services.length} />
+              <CounterRow label="Servicios activos" value={activeServices} accent="var(--color-success)" />
             </div>
             <div style={{ marginTop: 'var(--space-4)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
               <Link to="/dashboard/employees" style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-accent-light)' }}>
@@ -244,14 +281,20 @@ export default function AdminDashboard() {
   )
 }
 
-// Inline micro-styles para el link CTA (no justifican un CSS module separado)
-const adminStyles = {
-  ctaLink: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '6px',
-    fontSize: 'var(--font-size-sm)',
-    color: 'var(--color-accent-light)',
-    fontWeight: 'var(--font-weight-medium)',
-  },
+function CounterRow({ label, value, accent }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-size-sm)' }}>
+      <span style={{ color: 'var(--color-text-muted)' }}>{label}</span>
+      <span style={{ fontWeight: 'var(--font-weight-semibold)', color: accent ?? 'var(--color-text-primary)' }}>{value}</span>
+    </div>
+  )
+}
+
+const ctaLinkStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '6px',
+  fontSize: 'var(--font-size-sm)',
+  color: 'var(--color-accent-light)',
+  fontWeight: 'var(--font-weight-medium)',
 }

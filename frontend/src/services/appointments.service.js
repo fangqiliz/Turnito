@@ -5,14 +5,47 @@ function extractList(res) {
   return Array.isArray(list) ? list : []
 }
 
+// El backend limita `limit` a un máximo de 100 por página.
+const MAX_LIMIT = 100
+
+function buildBusinessUrl(businessId, { status = 'all', date = '', employeeId = '', page = 1, limit = 50 }) {
+  let url = `/appointments/business/${businessId}?limit=${limit}&page=${page}`
+  if (status && status !== 'all') url += `&status=${status}`
+  if (date) url += `&date=${date}`
+  if (employeeId) url += `&employee_id=${employeeId}`
+  return url
+}
+
 const appointmentsService = {
-  async getByBusiness(businessId, { status = 'all', date = '', employeeId = '', page = 1, limit = 50 } = {}) {
-    let url = `/appointments/business/${businessId}?limit=${limit}&page=${page}`
-    if (status && status !== 'all') url += `&status=${status}`
-    if (date) url += `&date=${date}`
-    if (employeeId) url += `&employee_id=${employeeId}`
-    const res = await api.get(url)
+  async getByBusiness(businessId, { status = 'all', date = '', employeeId = '', page = 1, limit = MAX_LIMIT } = {}) {
+    const res = await api.get(buildBusinessUrl(businessId, { status, date, employeeId, page, limit }))
     return extractList(res)
+  },
+
+  /**
+   * Trae TODAS las citas del negocio recorriendo la paginación del backend.
+   * Útil para el panel principal y la exportación, donde necesitamos el histórico
+   * completo y no solo la primera página.
+   */
+  async getAllByBusiness(businessId, { status = 'all', date = '', employeeId = '' } = {}) {
+    const filters = { status, date, employeeId, limit: MAX_LIMIT }
+
+    // Primera página: nos da los datos + el total para calcular cuántas faltan.
+    const firstRes = await api.get(buildBusinessUrl(businessId, { ...filters, page: 1 }))
+    let all = extractList(firstRes)
+    const total = Number(firstRes?.data?.total ?? all.length)
+
+    const totalPages = Math.min(Math.ceil(total / MAX_LIMIT), 50) // tope de seguridad: 5000 citas
+    if (totalPages > 1) {
+      const restResponses = await Promise.all(
+        Array.from({ length: totalPages - 1 }, (_, i) =>
+          api.get(buildBusinessUrl(businessId, { ...filters, page: i + 2 }))
+        )
+      )
+      for (const res of restResponses) all = all.concat(extractList(res))
+    }
+
+    return all
   },
 
   async getByUser({ status = '', page = 1, limit = 50 } = {}) {
