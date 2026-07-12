@@ -515,18 +515,28 @@ class AppointmentService {
 
   /**
    * Lista las citas de un negocio (multi-tenant).
-   * Solo accesible para dueños / staff (validado en el middleware requireRole).
+   * Solo accesible para el dueño o un empleado activo del negocio
+   * (verificado internamente con checkIsStaff).
    *
-   * @param {string} businessId - UUID del negocio
-   * @param {object} query      - Filtros opcionales (status, date, employee_id, page, limit)
+   * @param {string} businessId  - UUID del negocio
+   * @param {object} query       - Filtros opcionales (status, date, employee_id, page, limit)
+   * @param {string} requesterId - UUID del usuario autenticado que solicita el listado
    * @returns {Promise<{data: object[], total: number, page: number, limit: number}>}
+   * @throws {ApiError} 403 si requesterId no es dueño ni empleado activo del negocio
    */
-  async findByBusiness(businessId, query = {}) {
+  async findByBusiness(businessId, query = {}, requesterId) {
     const { status, date, employee_id, page = 1, limit = 20 } = query;
     const offset = (page - 1) * limit;
 
     // ── Regla 2 & 9: Confirmar que el negocio existe ──────────────────────────
     await this.#assertBusinessActive(businessId);
+
+    // ── Autorización: solo el dueño o un empleado activo del negocio puede
+    // ver su agenda completa (incluye datos de contacto de los clientes).
+    const isStaff = await this.checkIsStaff(requesterId, businessId);
+    if (!isStaff) {
+      throw ApiError.forbidden('No tienes permiso para ver las citas de este negocio.');
+    }
 
     let dbQuery = supabase
       .from('appointments')
@@ -570,6 +580,9 @@ class AppointmentService {
   /**
    * Actualiza el estado de una cita.
    *
+   * Autorización: solo el dueño del negocio o un empleado activo pueden
+   * ejecutar esta acción (verificado internamente con checkIsStaff).
+   *
    * Validaciones de transición de estado:
    *  - Una cita 'completed' o 'no_show' no puede volver a ser modificada.
    *  - Una cita 'cancelled' solo puede ser re-abierta como 'pending' por el staff.
@@ -579,6 +592,7 @@ class AppointmentService {
    * @param {string} newStatus     - Nuevo estado
    * @param {string} requesterId   - UUID del usuario que realiza la acción
    * @returns {Promise<object>}     Cita actualizada
+   * @throws {ApiError} 403 si requesterId no es dueño ni empleado activo del negocio
    */
   async updateStatus(appointmentId, businessId, newStatus, requesterId) {
     // ── Regla 9: Buscar la cita dentro del tenant ─────────────────────────────
@@ -591,6 +605,15 @@ class AppointmentService {
 
     if (fetchError || !appointment) {
       throw ApiError.notFound(`La cita con id "${appointmentId}" no existe en este negocio.`);
+    }
+
+    // ── Autorización: solo el dueño o un empleado activo del negocio puede
+    // cambiar el estado de una cita (a diferencia de cancel(), aquí no existe
+    // una vía de "cliente actuando sobre su propia cita" — este endpoint es
+    // exclusivamente el flujo de gestión del negocio, ver appointment.routes.js).
+    const isStaff = await this.checkIsStaff(requesterId, businessId);
+    if (!isStaff) {
+      throw ApiError.forbidden('No tienes permiso para gestionar las citas de este negocio.');
     }
 
     // Validar transición de estado

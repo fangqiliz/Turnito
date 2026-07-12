@@ -126,7 +126,7 @@ router.get(
  *           pending → confirmed | cancelled
  *           confirmed → completed | no_show | cancelled
  *         Estados finales (no modificables): completed, no_show
- * @access Privado – Dueño o empleado del negocio (validado por requireRole en el servicio)
+ * @access Privado – Dueño o empleado activo del negocio (validado en el servicio con checkIsStaff)
  *
  * Params:
  *   :id   UUID de la cita

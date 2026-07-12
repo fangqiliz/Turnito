@@ -64,27 +64,51 @@ class BusinessService {
   }
 
   /**
-   * Retorna la lista de todos los negocios registrados.
+   * Retorna la lista de negocios registrados, paginada.
    * Los resultados se ordenan por fecha de creación (más reciente primero).
    *
-   * @returns {Promise<object[]>} Lista de negocios
+   * Mismo formato de respuesta paginada que appointment.service.js
+   * (findByUser / findByBusiness): { data, total, page, limit }.
+   *
+   * @param {object} [query]        - Filtros/paginación
+   * @param {string} [query.slug]   - Filtra por slug exacto (ej. búsqueda de un único negocio)
+   * @param {number} [query.page]   - Página solicitada (default: 1)
+   * @param {number} [query.limit]  - Tamaño de página (default: 20, max: 100)
+   * @returns {Promise<{data: object[], total: number, page: number, limit: number}>}
    */
-  async findAll() {
-    const { data: businesses, error } = await supabase
+  async findAll(query = {}) {
+    const { slug, page = 1, limit = 20 } = query;
+    const offset = (page - 1) * limit;
+
+    let dbQuery = supabase
       .from('businesses')
-      .select('id, name, slug, description, phone, address, logo_url, owner_id, created_at, updated_at')
-      .order('created_at', { ascending: false });
+      .select(
+        'id, name, slug, description, phone, address, logo_url, owner_id, created_at, updated_at',
+        { count: 'exact' }
+      )
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (slug) {
+      dbQuery = dbQuery.eq('slug', slug);
+    }
+
+    const { data: businesses, error, count } = await dbQuery;
 
     if (error) {
       throw ApiError.internal(`Error al obtener los negocios: ${error.message}`);
     }
 
-    return businesses;
+    return { data: businesses, total: count, page, limit };
   }
 
   /**
    * Obtiene un negocio por su identificador único (UUID).
-   * Incluye información del propietario (perfil).
+   * Incluye información pública del propietario (perfil).
+   *
+   * Nota: este endpoint es de lectura semi-pública (alimenta la ficha del
+   * negocio en el flujo de reserva de clientes), por lo que el `owner` NO
+   * incluye `email` — solo datos de presentación (nombre y avatar).
    *
    * @param {string} businessId - UUID del negocio
    * @returns {Promise<object>} Negocio encontrado
@@ -106,7 +130,6 @@ class BusinessService {
         owner:owner_id (
           id,
           full_name,
-          email,
           avatar_url
         )
       `)

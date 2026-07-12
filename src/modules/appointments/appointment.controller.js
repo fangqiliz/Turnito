@@ -65,13 +65,14 @@ class AppointmentController {
    * Query params opcionales:
    *   ?status=...  ?date=YYYY-MM-DD  ?employee_id=UUID  ?page=1  ?limit=20
    *
-   * @access Privado – Solo dueño o empleado del negocio (validado por requireRole)
+   * @access Privado – Solo dueño o empleado activo del negocio (validado en el servicio con checkIsStaff)
    */
   getByBusiness = async (req, res, next) => {
     try {
       const result = await appointmentService.findByBusiness(
         req.params.id,
-        req.query
+        req.query,
+        req.user.id
       );
 
       return sendSuccess(

@@ -65,6 +65,40 @@ class EmployeeService {
     }
   }
 
+  /**
+   * Determina si el solicitante es dueño o empleado activo del negocio.
+   * A diferencia de #assertIsOwner, NO lanza error: "no ser staff" es un
+   * caso válido para findByBusiness() — un cliente eligiendo con quién
+   * reservar también puede llamar ese endpoint, solo que recibe una
+   * proyección reducida de datos (ver findByBusiness).
+   *
+   * @private
+   * @param {string} businessId
+   * @param {string} requesterId
+   * @returns {Promise<boolean>}
+   */
+  async #isStaff(businessId, requesterId) {
+    if (!requesterId) return false;
+
+    const { data: business } = await supabase
+      .from('businesses')
+      .select('owner_id')
+      .eq('id', businessId)
+      .single();
+
+    if (business?.owner_id === requesterId) return true;
+
+    const { data: employee } = await supabase
+      .from('employees')
+      .select('id')
+      .eq('business_id', businessId)
+      .eq('profile_id', requesterId)
+      .eq('is_active', true)
+      .single();
+
+    return !!employee;
+  }
+
   // ──────────────────────────────────────────────────────────────
   // Métodos públicos
   // ──────────────────────────────────────────────────────────────
@@ -165,7 +199,17 @@ class EmployeeService {
 
   /**
    * Retorna la lista de empleados de un negocio (multi-tenant).
-   * Incluye datos del perfil vinculado si existe.
+   *
+   * Este endpoint lo consumen tanto el panel de administración del negocio
+   * (dueño/staff, que necesita el detalle completo para gestionar el equipo)
+   * como el flujo público de reserva (un cliente eligiendo con quién
+   * agendar, que solo necesita nombre/especialidad). Para no filtrar datos
+   * de contacto del staff (email, teléfono, rol, estado activo/inactivo) a
+   * cualquier usuario autenticado, la proyección se decide según si
+   * `requesterId` es dueño o empleado activo del negocio (#isStaff):
+   *  – Staff del negocio → objeto completo (incluye email, phone, role, etc.).
+   *  – Cualquier otro usuario autenticado → solo campos públicos de
+   *    empleados activos (id, full_name, specialty, is_active).
    *
    * @param {string} businessId  - UUID del negocio (tenant)
    * @param {string} requesterId - UUID del usuario autenticado
@@ -174,9 +218,13 @@ class EmployeeService {
     // Validar que el negocio exista
     await this.#assertBusinessExists(businessId);
 
-    const { data: employees, error } = await supabase
+    const isStaff = await this.#isStaff(businessId, requesterId);
+
+    let query = supabase
       .from('employees')
-      .select(`
+      .select(
+        isStaff
+          ? `
         id,
         business_id,
         profile_id,
@@ -194,9 +242,19 @@ class EmployeeService {
           email,
           avatar_url
         )
-      `)
+      `
+          : 'id, full_name, specialty, is_active'
+      )
       .eq('business_id', businessId)
       .order('created_at', { ascending: false });
+
+    // Los usuarios sin relación con el negocio solo deben ver empleados
+    // activos (no ex-empleados). El dueño/staff sigue viendo la lista completa.
+    if (!isStaff) {
+      query = query.eq('is_active', true);
+    }
+
+    const { data: employees, error } = await query;
 
     if (error) {
       throw ApiError.internal(`Error al obtener empleados: ${error.message}`);

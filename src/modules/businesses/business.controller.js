@@ -26,16 +26,16 @@ class BusinessController {
 
   /**
    * GET /businesses
-   * Retorna la lista completa de negocios.
+   * Retorna la lista de negocios, paginada (?page, ?limit, ?slug opcional).
    *
    * @route  GET /businesses
    * @access Privado (Requiere Token)
    */
   getAll = async (req, res, next) => {
     try {
-      const businesses = await businessService.findAll();
+      const result = await businessService.findAll(req.query);
 
-      return sendSuccess(res, 'Lista de negocios obtenida correctamente.', businesses);
+      return sendSuccess(res, 'Lista de negocios obtenida correctamente.', result);
     } catch (error) {
       next(error);
     }

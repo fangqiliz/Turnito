@@ -138,8 +138,39 @@ export const businessIdParamSchema = z.object({
     .uuid('El identificador del negocio debe ser un UUID válido'),
 });
 
+/**
+ * Esquema de validación para query params de GET /businesses.
+ * Mismo patrón de paginación (page/limit) usado en el módulo Appointments.
+ *
+ * `slug` es un filtro exacto opcional: permite a un consumidor pedir un único
+ * negocio por su slug (ej. BookingPage) sin tener que traer todo el listado.
+ */
+export const listBusinessesQuerySchema = z.object({
+  slug: z
+    .string()
+    .trim()
+    .optional(),
+
+  page: z
+    .string()
+    .regex(/^\d+$/, 'page debe ser un número entero positivo')
+    .transform(Number)
+    .pipe(z.number().int().positive())
+    .optional()
+    .default('1'),
+
+  limit: z
+    .string()
+    .regex(/^\d+$/, 'limit debe ser un número entero positivo')
+    .transform(Number)
+    .pipe(z.number().int().min(1).max(100))
+    .optional()
+    .default('20'),
+});
+
 export default {
   createBusinessSchema,
   updateBusinessSchema,
   businessIdParamSchema,
+  listBusinessesQuerySchema,
 };

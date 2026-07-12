@@ -44,9 +44,11 @@ export default function BookingPage() {
     const fetchBusiness = async () => {
       setLoading(true)
       try {
-        const res = await api.get('/businesses')
+        // GET /businesses ahora es paginado; se filtra por slug exacto para
+        // traer solo el negocio que se va a reservar (evita paginar todo el listado).
+        const res = await api.get(`/businesses?slug=${encodeURIComponent(businessSlug)}`)
         if (res.success) {
-          const biz = (res.data || []).find(b => b.slug === businessSlug)
+          const biz = (res.data?.data || [])[0]
           if (biz) {
             setBusiness(biz)
             const [svcRes, empRes] = await Promise.all([
