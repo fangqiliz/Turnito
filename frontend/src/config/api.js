@@ -8,7 +8,12 @@ const API_URL = import.meta.env.VITE_API_URL || ''
  */
 async function getAuthHeaders(includeContentType = true) {
   const { data: { session } } = await supabase.auth.getSession()
-  const headers = {}
+  const headers = {
+    // Deshabilitar caché HTTP para APIs - siempre obtener datos frescos
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+  }
   if (includeContentType) {
     headers['Content-Type'] = 'application/json'
   }

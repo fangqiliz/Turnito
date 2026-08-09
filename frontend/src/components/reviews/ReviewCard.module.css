@@ -1,0 +1,90 @@
+.reviewCard {
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.reviewCard:hover {
+  border-color: #D1D5DB;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.clientInfo {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.avatar {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #F3F4F6;
+}
+
+.clientName {
+  font-weight: 600;
+  color: #1F2937;
+  margin: 0 0 0.25rem 0;
+  font-size: 1rem;
+}
+
+.date {
+  font-size: 0.875rem;
+  color: #6B7280;
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.actionBtn {
+  background: none;
+  border: none;
+  color: #6B7280;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s, color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.actionBtn:hover {
+  background-color: #F3F4F6;
+  color: #2563EB;
+}
+
+.actionBtn.delete:hover {
+  color: #DC2626;
+}
+
+.actionBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rating {
+  margin-bottom: 1rem;
+}
+
+.comment {
+  color: #374151;
+  line-height: 1.6;
+  margin: 0;
+  font-size: 0.95rem;
+}

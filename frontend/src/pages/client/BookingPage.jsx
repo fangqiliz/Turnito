@@ -86,17 +86,33 @@ export default function BookingPage() {
   const handleSubmit = async () => {
     setSubmitting(true)
     try {
+      // Convertir fecha y hora a UTC ISO 8601
+      // selectedDate es "YYYY-MM-DD", selectedTime es "HH:mm"
+      const localDateString = `${selectedDate}T${selectedTime}:00`
+      const localDate = new Date(localDateString)
+      const startTime = localDate.toISOString() // Formato: "2026-08-08T14:30:00.000Z"
+
       await appointmentsService.create({
         business_id:  business.id,
         service_id:   selectedService.id,
         employee_id:  selectedEmployee.id,
-        start_time:   new Date(`${selectedDate}T${selectedTime}:00`).toISOString(),
+        start_time:   startTime,
         ...clientData,
       })
       toast.success('¡Cita agendada exitosamente!')
       navigate('/client/appointments')
     } catch (err) {
-      toast.error(err.message || 'Error al agendar cita')
+      const errorMsg = err.message || 'Error al agendar cita'
+      
+      // Si el error es por disponibilidad, volver a seleccionar hora
+      if (errorMsg.includes('no está disponible') || errorMsg.includes('horario')) {
+        toast.error(errorMsg)
+        // Limpiar hora y volver a Step 2 para que seleccione otro horario
+        setSelectedTime('')
+        setStep(2)
+      } else {
+        toast.error(errorMsg)
+      }
     } finally {
       setSubmitting(false)
     }
@@ -123,6 +139,8 @@ export default function BookingPage() {
             time={selectedTime}
             onDateChange={setSelectedDate}
             onTimeChange={setSelectedTime}
+            employeeId={selectedEmployee?.id}
+            serviceId={selectedService?.id}
           />
         )}
         {step === 3 && <StepClientData data={clientData} onChange={setClientData} />}

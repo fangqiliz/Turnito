@@ -78,6 +78,34 @@ router.post(
 );
 
 /**
+ * @route  GET /appointments/available-slots
+ * @desc   Obtiene los horarios disponibles para un empleado en una fecha específica.
+ *         Considera el horario laboral del empleado y las citas existentes.
+ * @access Público – No requiere autenticación
+ *
+ * Query:
+ *   ?employeeId=UUID      (requerido)
+ *   ?date=YYYY-MM-DD      (requerido)
+ *   ?serviceId=UUID       (requerido - para obtener duration_minutes)
+ *   ?slotDuration=30      (opcional - intervalo en minutos, default 30)
+ *
+ * Response:
+ *   { date: "2026-08-15", slots: ["09:00", "09:30", "10:00", ...], timezone: "UTC" }
+ */
+router.get(
+  '/available-slots',
+  validate({
+    query: z.object({
+      employeeId: z.string().uuid('employeeId debe ser un UUID válido'),
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'date debe estar en formato YYYY-MM-DD'),
+      serviceId: z.string().uuid('serviceId debe ser un UUID válido'),
+      slotDuration: z.string().transform(Number).optional(),
+    }),
+  }),
+  appointmentController.getAvailableSlots
+);
+
+/**
  * @route  GET /appointments/user
  * @desc   Lista las citas del usuario autenticado con paginación y filtros opcionales.
  * @access Privado – Solo el usuario autenticado
@@ -117,6 +145,23 @@ router.get(
     query: listBusinessAppointmentsQuerySchema,
   }),
   appointmentController.getByBusiness
+);
+
+/**
+ * @route  GET /appointments/user
+ * @desc   Lista las citas del usuario autenticado con paginación y filtros opcionales.
+ * @access Privado – Solo el usuario autenticado
+ *
+ * Query:
+ *   ?status=pending|confirmed|cancelled|completed|no_show
+ *   ?page=1   (default: 1)
+ *   ?limit=20 (default: 20, max: 100)
+ */
+router.get(
+  '/user',
+  requireAuth,
+  validate({ query: listUserAppointmentsQuerySchema }),
+  appointmentController.getByUser
 );
 
 /**

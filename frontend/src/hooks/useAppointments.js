@@ -71,9 +71,12 @@ export function useUserAppointments(options = {}) {
   const fetch = useCallback(async () => {
     setLoading(true)
     try {
+      console.log('[useUserAppointments] fetching with status:', status)
       const data = await appointmentsService.getByUser({ status })
+      console.log('[useUserAppointments] received data:', data, 'length:', data?.length)
       setAppointments(data)
     } catch (err) {
+      console.error('[useUserAppointments] error:', err)
       toast.error(err.message || 'Error al cargar citas')
       setAppointments([])
     } finally {

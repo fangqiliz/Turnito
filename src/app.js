@@ -18,6 +18,7 @@ import scheduleRoutes from './modules/schedules/schedule.routes.js';
 import appointmentRoutes from './modules/appointments/appointment.routes.js';
 import uploadsRoutes from './modules/uploads/uploads.routes.js';
 import notificationRoutes from './modules/notifications/notification.routes.js';
+import reviewRoutes from './modules/reviews/review.routes.js';
 import setupSwagger from './config/swagger.js';
 
 const app = express();
@@ -61,6 +62,7 @@ app.use('/schedules', scheduleRoutes);
 app.use('/appointments', appointmentRoutes);
 app.use('/upload', uploadsRoutes);
 app.use('/notifications', notificationRoutes);
+app.use('/reviews', reviewRoutes);
 
 // 5. Manejo de Rutas no Encontradas (404)
 app.use((req, res, next) => {

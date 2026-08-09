@@ -1,7 +1,12 @@
 import api from '../config/api'
 
 function extractList(res) {
-  const list = res?.data?.data ?? res?.data?.appointments ?? res?.data ?? []
+  // La respuesta del backend tiene estructura:
+  // { success: true, message: "...", data: { data: [...], total, page, limit } }
+  if (!res || !res.data) return []
+  
+  // Extrae el array de citas
+  const list = res.data?.data ?? []
   return Array.isArray(list) ? list : []
 }
 
@@ -51,8 +56,16 @@ const appointmentsService = {
   async getByUser({ status = '', page = 1, limit = 50 } = {}) {
     let url = `/appointments/user?limit=${limit}&page=${page}`
     if (status) url += `&status=${status}`
-    const res = await api.get(url)
-    return extractList(res)
+    try {
+      const res = await api.get(url)
+      console.log('[appointmentsService.getByUser]', { url, status, res })
+      const extracted = extractList(res)
+      console.log('[appointmentsService.getByUser] extracted:', extracted)
+      return extracted
+    } catch (err) {
+      console.error('[appointmentsService.getByUser] error:', err)
+      throw err
+    }
   },
 
   async create(body) {
