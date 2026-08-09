@@ -56,7 +56,8 @@ export default function BookingPage() {
               api.get(`/employees/business/${biz.id}`),
             ])
             if (svcRes.success) setServices((svcRes.data || []).filter(s => s.is_active))
-            if (empRes.success) setEmployees((empRes.data || []).filter(e => e.is_active))
+            // Obtener empleados activos pero excluir managers y admins
+            if (empRes.success) setEmployees((empRes.data || []).filter(e => e.is_active && e.role !== 'manager' && e.role !== 'admin' && e.role !== 'owner'))
           }
         }
       } catch { toast.error('Error al cargar negocio') }

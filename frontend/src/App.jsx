@@ -7,6 +7,7 @@ import { BusinessProvider } from './context/BusinessContext'
 // Shared route guards
 import ProtectedRoute         from './components/shared/ProtectedRoute'
 import ProtectedAdminRoute    from './components/shared/ProtectedAdminRoute'
+import ProtectedManagerRoute  from './components/shared/ProtectedManagerRoute'
 import ProtectedEmployeeRoute from './components/shared/ProtectedEmployeeRoute'
 import ProtectedClientRoute   from './components/shared/ProtectedClientRoute'
 import SmartRedirect          from './components/shared/SmartRedirect'
@@ -30,6 +31,9 @@ import BusinessSettingsPage from './pages/dashboard/BusinessSettingsPage'
 import BusinessesPage       from './pages/dashboard/BusinessesPage'
 import CreateBusinessPage   from './pages/dashboard/CreateBusinessPage'
 import ProfilePage          from './pages/dashboard/ProfilePage'
+
+// Manager portal
+import ManagerDashboard from './pages/manager/ManagerDashboard'
 
 // Employee portal
 import EmployeeDashboard from './pages/employee/EmployeeDashboard'
@@ -94,6 +98,13 @@ export default function App() {
               <Route path="/dashboard/businesses/create" element={<CreateBusinessPage />} />
               <Route path="/dashboard/settings"          element={<BusinessSettingsPage />} />
               <Route path="/dashboard/profile"           element={<ProfilePage />} />
+            </Route>
+
+            {/* ── Manager portal (/manager) ────────────────────────────────── */}
+            <Route element={<ProtectedManagerRoute><DashboardLayout /></ProtectedManagerRoute>}>
+              <Route path="/manager"         element={<ManagerDashboard />} />
+              <Route path="/manager/appointments" element={<AppointmentsPage />} />
+              <Route path="/manager/profile" element={<ProfilePage />} />
             </Route>
 
             {/* ── Employee portal (/employee) ────────────────────────────────── */}
