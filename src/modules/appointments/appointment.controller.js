@@ -43,7 +43,9 @@ class AppointmentController {
    */
   getByUser = async (req, res, next) => {
     try {
+      console.log('[AppointmentController.getByUser] req.user:', req.user);
       const result = await appointmentService.findByUser(req.user.id, req.query);
+      console.log('[AppointmentController.getByUser] result:', result);
 
       return sendSuccess(
         res,
@@ -150,6 +152,62 @@ class AppointmentController {
       );
 
       return sendSuccess(res, 'Cita cancelada correctamente.', cancelled);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * GET /appointments/available-slots
+   * Obtiene los horarios disponibles para un empleado en una fecha específica.
+   *
+   * Query params:
+   *   ?employeeId=UUID      (requerido)
+   *   ?date=YYYY-MM-DD      (requerido)
+   *   ?serviceId=UUID       (requerido - para obtener duration_minutes)
+   *   ?slotDuration=30      (opcional - intervalo en minutos, default 30)
+   *
+   * @access Público - No requiere autenticación
+   * @returns {date, slots: ["09:00", "09:30", ...], timezone: "UTC"}
+   */
+  getAvailableSlots = async (req, res, next) => {
+    try {
+      const { employeeId, date, serviceId, slotDuration = 30 } = req.query;
+
+      // Validar parámetros requeridos
+      if (!employeeId || !date || !serviceId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Parámetros faltantes',
+          data: {
+            error: 'Se requieren employeeId, date y serviceId'
+          }
+        });
+      }
+
+      // Obtener duración del servicio
+      const service = await appointmentService.getServiceDuration(serviceId);
+      if (!service) {
+        return res.status(404).json({
+          success: false,
+          message: 'Servicio no encontrado',
+          data: { date, slots: [] }
+        });
+      }
+
+      // Obtener slots disponibles
+      const result = await appointmentService.getAvailableSlots(
+        employeeId,
+        date,
+        service.duration_minutes,
+        parseInt(slotDuration)
+      );
+
+      return sendSuccess(
+        res,
+        'Horarios disponibles obtenidos correctamente.',
+        result
+      );
     } catch (error) {
       next(error);
     }

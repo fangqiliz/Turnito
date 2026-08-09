@@ -15,7 +15,10 @@ const TABS = [
 
 export default function MyAppointmentsPage() {
   const [tab, setTab] = useState('')
+  
   const { appointments, loading, actionLoading, cancel } = useUserAppointments({ status: tab })
+
+  console.log('[MyAppointmentsPage]', { tab, appointmentsCount: appointments.length, loading })
 
   if (loading) return <Spinner fullPage size="lg" />
 

@@ -379,45 +379,50 @@ class AppointmentService {
     // ── Regla 5: Calcular end_time ────────────────────────────────────────────
     const end_time = this.#calculateEndTime(start_time, service.duration_minutes);
 
-    // ── Nuevo comportamiento: Verificar disponibilidad del empleado ────────────
-    // Si el empleado no existe, no está activo, o no tiene horario/disponibilidad,
-    // simplemente proceder sin empleado (employee_id = null).
+    // ── Nuevo comportamiento ESTRICTO: Verificar disponibilidad del empleado ───
+    // Si se proporciona un employee_id, DEBE estar disponible.
+    // De lo contrario, se rechaza la solicitud con un mensaje claro.
     let finalEmployeeId = null;
 
     if (employee_id) {
       // Verificar que el empleado existe y está activo
       const employee = await this.#getActiveEmployee(employee_id, business_id);
 
-      if (employee) {
-        // Verificar horario laboral y disponibilidad
-        const isWithinSchedule = await this.#isWithinWorkSchedule(
-          employee_id,
-          start_time,
-          end_time
-        );
-
-        const hasNoOverlap = await this.#hasNoOverlap(
-          employee_id,
-          start_time,
-          end_time
-        );
-
-        // Solo asignar el empleado si ambas validaciones pasan
-        if (isWithinSchedule && hasNoOverlap) {
-          finalEmployeeId = employee_id;
-        } else {
-          // Registrar por qué no se asignó el empleado
-          logger.info(
-            `[AppointmentService] Employee ${employee_id} not assigned: ` +
-            `withinSchedule=${isWithinSchedule}, noOverlap=${hasNoOverlap}`
-          );
-        }
-      } else {
-        // Empleado no existe o no está activo
-        logger.info(
-          `[AppointmentService] Employee ${employee_id} not found or inactive`
+      if (!employee) {
+        throw ApiError.badRequest(
+          `El profesional seleccionado no está disponible.`
         );
       }
+
+      // Verificar horario laboral
+      const isWithinSchedule = await this.#isWithinWorkSchedule(
+        employee_id,
+        start_time,
+        end_time
+      );
+
+      if (!isWithinSchedule) {
+        throw ApiError.badRequest(
+          `El horario solicitado está fuera del horario de trabajo del profesional. ` +
+          `Selecciona otro horario.`
+        );
+      }
+
+      // Verificar disponibilidad (sin solapamientos)
+      const hasNoOverlap = await this.#hasNoOverlap(
+        employee_id,
+        start_time,
+        end_time
+      );
+
+      if (!hasNoOverlap) {
+        throw ApiError.badRequest(
+          `El horario seleccionado ya no está disponible. ` +
+          `Puede haber sido reservado recientemente. Intenta con otro horario.`
+        );
+      }
+
+      finalEmployeeId = employee_id;
     }
 
     // ── Regla 9: Insertar con aislamiento multi-tenant ────────────────────────
@@ -426,7 +431,7 @@ class AppointmentService {
       .insert({
         business_id,
         service_id,
-        employee_id: finalEmployeeId,  // Puede ser null
+        employee_id: finalEmployeeId,  // Puede ser null si no se seleccionó empleado
         client_id:    clientId ?? null,
         start_time,
         end_time,
@@ -480,6 +485,8 @@ class AppointmentService {
     const { status, page = 1, limit = 20 } = query;
     const offset = (page - 1) * limit;
 
+    logger.info(`[AppointmentService] findByUser START | userId=${userId} status=${status ?? 'all'} page=${page}`);
+
     let dbQuery = supabase
       .from('appointments')
       .select(
@@ -501,13 +508,15 @@ class AppointmentService {
 
     const { data, error, count } = await dbQuery;
 
+    logger.info(`[AppointmentService] findByUser RESULT | userId=${userId} returned=${data?.length ?? 0} total=${count} error=${error?.message ?? 'none'}`);
+
     if (error) {
       throw ApiError.internal(`Error al obtener las citas del usuario: ${error.message}`);
     }
 
     // ── Regla 11 ──────────────────────────────────────────────────────────────
     logger.info(
-      `[AppointmentService] LIST_USER | user=${userId} status=${status ?? 'all'} page=${page}`
+      `[AppointmentService] LIST_USER | user=${userId} status=${status ?? 'all'} page=${page} dataCount=${data?.length}`
     );
 
     return { data, total: count, page, limit };
@@ -716,6 +725,261 @@ class AppointmentService {
     );
 
     return cancelled;
+  }
+
+  /**
+   * Obtiene la duración de un servicio por su ID.
+   * Utilizado por getAvailableSlots para calcular la duración de los slots.
+   *
+   * @public
+   * @param {string} serviceId - UUID del servicio
+   * @returns {Promise<object|null>} { id, duration_minutes } o null si no existe
+   */
+  async getServiceDuration(serviceId) {
+    try {
+      const { data: service, error } = await supabase
+        .from('services')
+        .select('id, duration_minutes')
+        .eq('id', serviceId)
+        .single();
+
+      if (error || !service) {
+        return null;
+      }
+
+      return service;
+    } catch (err) {
+      logger.warn(`[AppointmentService] Error al obtener duración del servicio: ${err.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Verifica la disponibilidad de un horario específico para un empleado.
+   * Valida horario laboral Y ausencia de solapamientos.
+   *
+   * @public
+   * @param {string} employeeId
+   * @param {string} startTime  - ISO 8601
+   * @param {string} endTime    - ISO 8601
+   * @returns {Promise<{available: boolean, reason?: string}>}
+   */
+  async checkAvailability(employeeId, startTime, endTime) {
+    try {
+      const isWithinSchedule = await this.#isWithinWorkSchedule(employeeId, startTime, endTime);
+      if (!isWithinSchedule) {
+        return {
+          available: false,
+          reason: 'El horario está fuera del horario laboral del profesional.'
+        };
+      }
+
+      const hasNoOverlap = await this.#hasNoOverlap(employeeId, startTime, endTime);
+      if (!hasNoOverlap) {
+        return {
+          available: false,
+          reason: 'El horario se solapa con otra cita existente.'
+        };
+      }
+
+      return { available: true };
+    } catch (err) {
+      logger.warn(`[AppointmentService] Error al verificar disponibilidad: ${err.message}`);
+      return { available: false, reason: 'Error al verificar disponibilidad' };
+    }
+  }
+
+  /**
+   * Obtiene los horarios disponibles para un empleado en una fecha específica.
+   * Retorna un array de horarios de inicio posibles, con granularidad configurable (ej. cada 30 min).
+   *
+   * @public
+   * @param {string} employeeId    - UUID del empleado
+   * @param {string} date          - Fecha en formato YYYY-MM-DD
+   * @param {number} durationMin   - Duración del servicio en minutos
+   * @param {number} [slotDuration=30] - Intervalo de slots en minutos (30 = cada media hora)
+   * @returns {Promise<{date: string, slots: string[], timezone: string}>}
+   *   slots es un array de horarios disponibles en formato "HH:MM" (ej. ["09:00", "09:30", "10:00"])
+   */
+  async getAvailableSlots(employeeId, date, durationMin, slotDuration = 30) {
+    try {
+      // Convertir fecha a day_of_week (UTC)
+      const dateObj = new Date(`${date}T00:00:00Z`);
+      const dayOfWeek = dateObj.getUTCDay();
+
+      // 1. Obtener horarios laborales del empleado para ese día
+      const { data: schedules, error: schedError } = await supabase
+        .from('schedules')
+        .select('start_time, end_time')
+        .eq('employee_id', employeeId)
+        .eq('day_of_week', dayOfWeek)
+        .eq('is_active', true);
+
+      if (schedError || !schedules || schedules.length === 0) {
+        return { date, slots: [], timezone: 'UTC' };
+      }
+
+      // 2. Obtener citas existentes del empleado para esa fecha
+      const dayStart = `${date}T00:00:00.000Z`;
+      const dayEnd = `${date}T23:59:59.999Z`;
+
+      const { data: appointments, error: apptError } = await supabase
+        .from('appointments')
+        .select('start_time, end_time, status')
+        .eq('employee_id', employeeId)
+        .gte('start_time', dayStart)
+        .lte('start_time', dayEnd)
+        .neq('status', 'cancelled');
+
+      if (apptError) {
+        logger.warn(`[AppointmentService] Error al obtener citas: ${apptError.message}`);
+      }
+
+      // 3. Generar todos los slots posibles dentro de los horarios laborales
+      const allSlots = [];
+      for (const schedule of schedules) {
+        const [startHour, startMin] = schedule.start_time.split(':');
+        const [endHour, endMin] = schedule.end_time.split(':');
+
+        const startTotalMin = parseInt(startHour) * 60 + parseInt(startMin);
+        const endTotalMin = parseInt(endHour) * 60 + parseInt(endMin);
+
+        for (let totalMin = startTotalMin; totalMin + durationMin <= endTotalMin; totalMin += slotDuration) {
+          const slotHour = Math.floor(totalMin / 60);
+          const slotMin = totalMin % 60;
+          const timeStr = `${String(slotHour).padStart(2, '0')}:${String(slotMin).padStart(2, '0')}`;
+          allSlots.push(timeStr);
+        }
+      }
+
+      // 4. Filtrar slots que se solapan con citas existentes
+      const availableSlots = [];
+
+      for (const slot of allSlots) {
+        const [slotHour, slotMin] = slot.split(':');
+        const slotStartMin = parseInt(slotHour) * 60 + parseInt(slotMin);
+        const slotEndMin = slotStartMin + durationMin;
+
+        // Convertir minutos a tiempo UTC para esta fecha
+        const slotStart = new Date(dateObj);
+        slotStart.setUTCHours(Math.floor(slotStartMin / 60), slotStartMin % 60, 0, 0);
+        const slotStartIso = slotStart.toISOString();
+
+        const slotEnd = new Date(slotStart);
+        slotEnd.setUTCMinutes(slotEnd.getUTCMinutes() + durationMin);
+        const slotEndIso = slotEnd.toISOString();
+
+        // Verificar si se solapa con alguna cita existente
+        const hasSolapamiento = appointments?.some(apt => {
+          const aptStart = new Date(apt.start_time);
+          const aptEnd = new Date(apt.end_time);
+          return slotStart < aptEnd && slotEnd > aptStart;
+        });
+
+        if (!hasSolapamiento) {
+          availableSlots.push(slot);
+        }
+      }
+
+      return { date, slots: availableSlots, timezone: 'UTC' };
+    } catch (err) {
+      logger.error(`[AppointmentService] Error en getAvailableSlots: ${err.message}`);
+      return { date, slots: [], timezone: 'UTC', error: err.message };
+    }
+  }
+
+  /**
+   * Cancela automáticamente las citas vencidas (citas cuyo start_time ya pasó).
+   * Solo cancela citas con status 'pending' o 'confirmed'.
+   * Se ejecuta automáticamente desde el cron job.
+   *
+   * @returns {Promise<object>} { cancelledCount: number, errors: string[] }
+   */
+  async autoCancelExpiredAppointments() {
+    try {
+      const now = new Date().toISOString();
+
+      // Buscar citas vencidas que aún no han sido canceladas/completadas
+      const { data: expiredAppointments, error } = await supabase
+        .from('appointments')
+        .select('id, business_id, client_id, employee_id, start_time, status')
+        .lt('start_time', now)
+        .in('status', ['pending', 'confirmed']);
+
+      if (error) {
+        throw ApiError.internal(`Error al buscar citas vencidas: ${error.message}`);
+      }
+
+      if (!expiredAppointments || expiredAppointments.length === 0) {
+        return { cancelledCount: 0, errors: [] };
+      }
+
+      const errors = [];
+      let cancelledCount = 0;
+
+      // Cancelar cada cita vencida
+      for (const appointment of expiredAppointments) {
+        try {
+          const { error: updateError } = await supabase
+            .from('appointments')
+            .update({ status: 'cancelled', updated_at: now })
+            .eq('id', appointment.id);
+
+          if (updateError) {
+            errors.push(`Error al cancelar cita ${appointment.id}: ${updateError.message}`);
+            continue;
+          }
+
+          // Crear notificación de cancelación automática
+          try {
+            const business = await this.#assertBusinessActive(appointment.business_id);
+            
+            const notifications = [];
+
+            // Notificación para el cliente
+            if (appointment.client_id) {
+              notifications.push({
+                business_id: appointment.business_id,
+                user_id: appointment.client_id,
+                title: '❌ Cita cancelada automáticamente',
+                message: `Tu cita programada para el ${new Date(appointment.start_time).toLocaleString('es-ES')} ha sido cancelada automáticamente por no presentarte.`,
+                type: 'appointment_cancelled',
+              });
+            }
+
+            // Notificación para el propietario del negocio
+            if (business.owner_id) {
+              notifications.push({
+                business_id: appointment.business_id,
+                user_id: business.owner_id,
+                title: '⚠️ Cita cancelada automáticamente',
+                message: `La cita de un cliente programada para el ${new Date(appointment.start_time).toLocaleString('es-ES')} ha sido cancelada automáticamente.`,
+                type: 'appointment_cancelled',
+              });
+            }
+
+            if (notifications.length > 0) {
+              await supabase.from('notifications').insert(notifications);
+            }
+          } catch (notifError) {
+            logger.warn(`[AppointmentService] Error al crear notificación para cita ${appointment.id}: ${notifError.message}`);
+          }
+
+          cancelledCount++;
+        } catch (err) {
+          errors.push(`Error procesando cita ${appointment.id}: ${err.message}`);
+        }
+      }
+
+      logger.info(
+        `[AppointmentService] Citas vencidas canceladas: ${cancelledCount} | Errores: ${errors.length}`
+      );
+
+      return { cancelledCount, errors };
+    } catch (err) {
+      logger.error(`[AppointmentService] Error en autoCancelExpiredAppointments: ${err.message}`);
+      return { cancelledCount: 0, errors: [err.message] };
+    }
   }
 }
 

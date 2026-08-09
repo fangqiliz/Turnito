@@ -5,6 +5,7 @@
 
 import logger from '../config/logger.js'
 import notificationService from '../modules/notifications/notification.service.js'
+import appointmentService from '../modules/appointments/appointment.service.js'
 
 /**
  * Inicializar todos los cron jobs
@@ -14,6 +15,9 @@ export function initializeCronJobs() {
 
   // Job de recordatorios cada 30 minutos
   startAppointmentRemindersJob()
+
+  // Job de cancelación automática de citas vencidas cada 1 hora
+  startAutoCancelExpiredAppointmentsJob()
 
   logger.info('[CronJobs] Todos los cron jobs iniciados exitosamente')
 }
@@ -44,6 +48,36 @@ async function executeAppointmentRemindersJob() {
     }
   } catch (err) {
     logger.error(`[AppointmentRemindersJob] Error: ${err.message}`)
+  }
+}
+
+/**
+ * Job: Cancelar automáticamente las citas vencidas
+ * Se ejecuta cada 1 hora para cancelar citas cuyo start_time ya ha pasado
+ */
+function startAutoCancelExpiredAppointmentsJob() {
+  // Ejecutar inmediatamente
+  executeAutoCancelExpiredAppointmentsJob()
+
+  // Luego cada 1 hora
+  const interval = setInterval(executeAutoCancelExpiredAppointmentsJob, 60 * 60 * 1000)
+
+  logger.info('[AutoCancelExpiredAppointmentsJob] Iniciado. Se ejecutará cada 1 hora.')
+
+  return interval
+}
+
+async function executeAutoCancelExpiredAppointmentsJob() {
+  try {
+    const result = await appointmentService.autoCancelExpiredAppointments()
+    if (result.cancelledCount > 0) {
+      logger.info(`[AutoCancelExpiredAppointmentsJob] Canceladas ${result.cancelledCount} citas vencidas`)
+    }
+    if (result.errors.length > 0) {
+      logger.warn(`[AutoCancelExpiredAppointmentsJob] Errores: ${result.errors.join(', ')}`)
+    }
+  } catch (err) {
+    logger.error(`[AutoCancelExpiredAppointmentsJob] Error: ${err.message}`)
   }
 }
 

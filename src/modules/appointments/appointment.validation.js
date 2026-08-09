@@ -30,7 +30,17 @@ export const createAppointmentSchema = z
     /** ISO 8601 UTC. end_time se calcula automáticamente usando duration_minutes. */
     start_time: z
       .string({ required_error: 'El start_time es requerido' })
-      .datetime({ message: 'start_time debe ser una fecha ISO 8601 válida (ej. 2026-06-15T10:00:00Z)' })
+      .refine(
+        (val) => {
+          try {
+            const date = new Date(val)
+            return !isNaN(date.getTime())
+          } catch {
+            return false
+          }
+        },
+        { message: 'start_time debe ser una fecha ISO 8601 válida (ej. 2026-06-15T10:00:00Z)' }
+      )
       .refine(
         (val) => new Date(val) > new Date(),
         { message: 'No se pueden agendar citas en el pasado' }
