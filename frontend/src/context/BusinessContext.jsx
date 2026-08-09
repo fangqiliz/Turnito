@@ -23,8 +23,30 @@ export function BusinessProvider({ children }) {
         setEmployeeRoles(empRoles)
 
         // Auto-seleccionar el primer negocio si no hay uno activo
-        if (!activeBusiness && owned.length > 0) {
-          setActiveBusiness(owned[0])
+        if (!activeBusiness) {
+          // Primero intentar con negocio propio (admin)
+          if (owned.length > 0) {
+            setActiveBusiness(owned[0])
+          }
+          // Si no es propietario pero es empleado, obtener el business
+          else if (empRoles.length > 0) {
+            const empRole = empRoles[0]
+            // Si empRole tiene business anidado, usarlo
+            if (empRole.business) {
+              setActiveBusiness(empRole.business)
+            }
+            // Si tiene business_id, obtener el business completo
+            else if (empRole.business_id) {
+              try {
+                const bizRes = await api.get(`/businesses/${empRole.business_id}`)
+                if (bizRes.success) {
+                  setActiveBusiness(bizRes.data)
+                }
+              } catch (err) {
+                console.error('Error obteniendo business para manager:', err)
+              }
+            }
+          }
         }
       }
     } catch (error) {

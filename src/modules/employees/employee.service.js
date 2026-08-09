@@ -243,7 +243,7 @@ class EmployeeService {
           avatar_url
         )
       `
-          : 'id, full_name, specialty, is_active'
+          : 'id, full_name, specialty, role, is_active'
       )
       .eq('business_id', businessId)
       .order('created_at', { ascending: false });

@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard,
   CalendarDays,
@@ -11,11 +11,12 @@ import {
   Building2
 } from 'lucide-react'
 
+import { useUserRole } from '../../hooks/useUserRole'
 import IsotipoTurnito from '../../assets/IsotipoTurnito.png'
 import LogoSideBar from '../../assets/LogoSideBar.png'
 import styles from './Sidebar.module.css'
 
-const NAV_ITEMS = [
+const ADMIN_NAV_ITEMS = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Inicio', end: true },
   { to: '/dashboard/businesses', icon: Building2, label: 'Negocios' },
   { to: '/dashboard/appointments', icon: CalendarDays, label: 'Citas' },
@@ -25,7 +26,18 @@ const NAV_ITEMS = [
   { to: '/dashboard/settings', icon: Settings, label: 'Configuración' },
 ]
 
+const MANAGER_NAV_ITEMS = [
+  { to: '/manager', icon: LayoutDashboard, label: 'Inicio', end: true },
+  { to: '/manager/appointments', icon: CalendarDays, label: 'Citas' },
+]
+
 export default function Sidebar({ collapsed, onToggle }) {
+  const { isManager } = useUserRole()
+  const location = useLocation()
+  
+  // Determinar qué items mostrar según el rol
+  const navItems = isManager ? MANAGER_NAV_ITEMS : ADMIN_NAV_ITEMS
+
   return (
     <aside className={`${styles.sidebar} ${collapsed ? styles.collapsed : ''}`}>
 
@@ -62,7 +74,7 @@ export default function Sidebar({ collapsed, onToggle }) {
 
 
       <nav className={styles.nav}>
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const Icon = item.icon
 
           return (
